@@ -3,45 +3,118 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
+import { OtpService } from './otp.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService, // Prisma ORM service
-    private readonly jwtService: JwtService, // JWT handling
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+    private readonly otpService: OtpService,
   ) {}
 
-  // Registers a new user and returns JWT tokens
+  // Registers a new user
+  // auth.service.ts
   async register(userData: any) {
-    const hash = await bcrypt.hash(userData.password, 12); // hash password
-    const user = await this.prisma.user.create({
-      data: { ...userData, passwordHash: hash },
-    });
-    return this.getTokens(user); // return JWT tokens
+    try {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: userData.email },
+      });
+      if (existingUser) throw new UnauthorizedException('Email already registered');
+
+      const userCount = await this.prisma.user.count();
+
+      // If no users exist, reset ID sequence and assign admin role
+      if (userCount === 0) {
+        await this.prisma.$executeRawUnsafe(`ALTER SEQUENCE "User_id_seq" RESTART WITH 1`);
+      }
+
+      const hash = await bcrypt.hash(userData.password, 12);
+
+      const roleName = userCount === 0 ? 'admin' : 'user';
+      const role = await this.prisma.role.findUnique({ where: { name: roleName } });
+
+      // Create user
+      const user = await this.prisma.user.create({
+        data: {
+          email: userData.email,
+          fullName: userData.fullName,
+          passwordHash: hash,
+          role: roleName,
+          walletBalance: 0,
+          currency: 'USD',
+          referralCode: userData.referralCode || '',
+          qrCode: '',
+          profileImage: userData.profileImage || '',
+          phoneNumber: userData.phoneNumber || '',
+          address: userData.address || '',
+          country: userData.country || '',
+          dateOfBirth: userData.dateOfBirth
+            ? new Date(userData.dateOfBirth)
+            : new Date(),
+        },
+      });
+
+      // Link to Role in UserRole table
+      await this.prisma.userRole.create({
+        data: {
+          userId: user.id,
+          roleId: role?.id || 2, // Default to 'user' role if not found
+        },
+      });
+
+      // Auto create transaction limit row (optional)
+      await this.prisma.transactionLimits.create({
+        data: {
+          userId: user.id,
+          daily: 1000, // default daily limit
+          weeklyBudget: 5000,
+          monthlyBudget: 20000,
+          yearlyBudget: 240000,
+        },
+      });
+
+      // Send OTP
+      await this.otpService.sendOtp(user.email, 'register');
+
+      return {
+        message: `User registered successfully as ${roleName}. OTP sent to email.`,
+        otpSent: true,
+        email: user.email,
+      };
+    } catch (error) {
+      console.error('Register error:', error);
+      throw error;
+    }
   }
 
-  // User login
-  async login(email: string, password: string) {
+
+
+  // Login user
+   async login(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(password, user.passwordHash || '');
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    return this.getTokens(user); // return JWT tokens
+    await this.otpService.sendOtp(user.email, 'login');
+
+    return { otp_required: true, email: user.email, message: 'OTP sent to email' };
   }
 
-  // Generates access and refresh tokens
-  async getTokens(user: any) {
+  // Generate tokens after OTP verification
+  async generateTokensAfterOtp(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) throw new UnauthorizedException('User not found');
+
     const payload = { sub: user.id, email: user.email, role: user.role };
 
-    // Access token (short-lived)
     const accessToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_ACCESS_TOKEN_SECRET,
-      expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRY || '15m',
+      secret: process.env.JWT_ACCESS_SECRET,
+      expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
     });
 
-    // Refresh token (long-lived)
     const refreshTokenRaw = randomBytes(64).toString('hex');
     const refreshTokenHash = await bcrypt.hash(refreshTokenRaw, 12);
 
@@ -49,54 +122,203 @@ export class AuthService {
       data: {
         tokenHash: refreshTokenHash,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48h
+      },
+    });
+
+    // ✅ Fetch roles & permissions properly
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId: user.id },
+      include: {
+        role: {
+          select: {
+            name: true,
+            rolePermissions: {
+              select: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const roles = userRoles.map((ur) => ur.role.name);
+    const permissions = userRoles.flatMap((ur) =>
+      ur.role.rolePermissions.map(
+        (rp) => rp.permission.action + ':' + rp.permission.resource
+      )
+    );
+
+    const userInfo = {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: roles,
+      permissions,
+      walletBalance: user.walletBalance,
+      currency: user.currency,
+    };
+
+    return { accessToken, refreshToken: refreshTokenRaw, userInfo };
+  }
+
+    // Refresh token
+    async refreshAccessToken(refreshToken: string) {
+      const tokens = await this.prisma.refreshToken.findMany();
+      for (const stored of tokens) {
+        const valid = await bcrypt.compare(refreshToken, stored.tokenHash);
+        if (valid && stored.expiresAt > new Date() && !stored.revoked) {
+          const user = await this.prisma.user.findUnique({
+            where: { id: stored.userId },
+          });
+          if (!user) throw new UnauthorizedException('User not found');
+
+          const payload = { sub: user.id, email: user.email, role: user.role };
+
+          const newAccessToken = this.jwtService.sign(payload, {
+            secret: process.env.JWT_ACCESS_SECRET,
+            expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
+          });
+
+          const userRoles = await this.prisma.userRole.findMany({
+        where: { userId: user.id },
+        include: {
+          role: {
+            select: {
+              name: true,
+              rolePermissions: {
+                select: {
+                  permission: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const roles = userRoles.map((ur) => ur.role.name);
+      const permissions = userRoles.flatMap((ur) =>
+        ur.role.rolePermissions.map(
+          (rp) => rp.permission.action + ':' + rp.permission.resource
+        )
+      );
+
+      const userInfo = {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: roles,
+        permissions,
+        walletBalance: user.walletBalance,
+        currency: user.currency,
+      };
+
+        return { accessToken: newAccessToken, userInfo };
+      }
+    }
+    throw new UnauthorizedException('Invalid or expired refresh token');
+  }
+
+  async revokeRefreshToken(refreshToken: string) {
+    try{
+    const tokens = await this.prisma.refreshToken.findMany();
+    for (const stored of tokens) {
+      const valid = await bcrypt.compare(refreshToken, stored.tokenHash);
+      if (valid) {
+        await this.prisma.refreshToken.update({
+          where: { id: stored.id },
+          data: { revoked: true },
+        });
+        return true;
+      }
+    }
+    return false;
+    }
+    catch (error) {
+      console.log('Revoke refresh token error:', error.message);
+      throw new Error(error.message);
+    }
+  }
+
+  // Generates JWT access & refresh tokens
+  async getTokens(user: any) {
+    const payload = { sub: user.id, email: user.email, role: user.role };
+
+    const accessToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_ACCESS_SECRET,
+      expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
+    });
+
+    const refreshTokenRaw = randomBytes(64).toString('hex');
+    const refreshTokenHash = await bcrypt.hash(refreshTokenRaw, 12);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        tokenHash: refreshTokenHash,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
     return { accessToken, refreshToken: refreshTokenRaw };
   }
 
-  // Verifies a refresh token
-  async verifyRefreshToken(token: string) {
-    const tokenDb = await this.prisma.refreshToken.findFirst({
-      where: { revoked: false },
+  // Generate OTP token (used for email verification)
+  private async generateOtpToken(user: any) {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(code, 12);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    await this.prisma.otp.create({
+      data: {
+        email: user.email,
+        codeHash,
+        purpose: 'register',
+        expiresAt,
+        userId: user.id,
+      },
     });
-    if (!tokenDb) throw new UnauthorizedException('Invalid token');
 
-    const valid = await bcrypt.compare(token, tokenDb.tokenHash);
-    if (!valid) throw new UnauthorizedException('Invalid token');
-
-    return tokenDb.userId;
+    return code; // send plain OTP for frontend (or encode in JWT for secure token)
   }
+
+  // Google Login/Registration
   async googleLogin(profile: any) {
     const email = profile.emails[0].value;
     const name = profile.displayName;
 
-    // Check if user exists
     let user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      // Create new user
       user = await this.prisma.user.create({
         data: {
           email,
           fullName: name,
-          passwordHash: '', // Google login doesn't use password
+          passwordHash: '', // optional password
           role: 'user',     // default role
-          phoneNumber: '',  // optional, can be updated later
           walletBalance: 0,
           currency: 'USD',
-          referralCode: '', // generate if needed
-          qrCode: '',       // generate if needed
+          referralCode: '',
+          qrCode: '',
           address: '',
           country: '',
-          dateOfBirth: new Date(), // default, update later
+          dateOfBirth: new Date(),
           profileImage: profile.photos[0]?.value || '',
+          phoneNumber: '',
         },
       });
     }
 
-    // Return JWT access & refresh tokens
     return this.getTokens(user);
+  }
+
+  async setPassword(userId: number, password: string) {
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashed },
+    });
+    return { message: "Password updated successfully" };
   }
 }

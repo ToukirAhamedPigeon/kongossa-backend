@@ -30,7 +30,7 @@ async function bootstrap() {
 
   // Enable CORS for cross-origin requests
   app.enableCors({
-    origin: ['http://localhost:3000'], // Frontend URL(s)
+    origin: ['http://localhost:5173'], // Frontend URL(s)
     credentials: true,                 // Allow cookies to be sent
   });
 

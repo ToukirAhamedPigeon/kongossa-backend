@@ -3,7 +3,6 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { AuthService } from './auth.service';
 
-// Strategy for Google OAuth login
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private authService: AuthService) {
@@ -15,9 +14,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  async validate(accessToken: string, refreshToken: string, profile: any, done: VerifyCallback): Promise<any> {
-    // You can use profile info to register or login the user in your DB
-    const user = await this.authService.googleLogin(profile);
-    done(null, user);
+  async validate(accessToken: string, refreshToken: string, profile: any, done: VerifyCallback) {
+    const tokens = await this.authService.googleLogin(profile);
+    done(null, tokens);
   }
 }

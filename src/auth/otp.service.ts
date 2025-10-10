@@ -1,51 +1,70 @@
 import { Injectable } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { randomInt } from 'crypto';
 import * as bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class OtpService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService, // inject MailService
+  ) {}
 
-  // Sends OTP to user email
+  // Send OTP
+  // Send OTP (for first time or resend)
   async sendOtp(email: string, purpose: string) {
-    const code = randomInt(100000, 999999).toString(); // 6-digit OTP
-    const codeHash = await bcrypt.hash(code, 12); // hash OTP
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    try{
+      console.log(email, purpose);
+      const user = await this.prisma.user.findUnique({ where: { email } });
+      if (!user) throw new Error('User not found');
 
-    // Save OTP in DB
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) throw new Error('User not found');
+      // Revoke previous OTPs
+      await this.prisma.otp.updateMany({
+        where: { email, purpose, used: false },
+        data: { used: true },
+      });
 
-    await this.prisma.otp.create({
-      data: {
+      // Generate new OTP
+      const code = randomInt(100000, 999999).toString();
+      const codeHash = await bcrypt.hash(code, 12);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+      const otpRecord = await this.prisma.otp.create({
+        data: { email, codeHash, purpose, expiresAt, userId: user.id },
+      });
+
+      await this.mailService.sendMail(
         email,
-        codeHash,
-        purpose,
-        expiresAt,
-        userId: user.id,
-      },
+        'Your OTP Code',
+        `Your OTP code is ${code}. It will expire in 10 minutes.`
+      );
+
+      return { message: 'OTP resent successfully', otpToken: code };
+    }
+    catch (error) {
+      console.log(error);
+      throw new Error(error.message);
+    }
+  }
+
+  // Verify OTP
+  async verifyOtp(email: string, code: string, purpose: string) {
+    const otpRecord = await this.prisma.otp.findFirst({
+      where: { email, purpose, used: false },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!otpRecord) throw new Error('OTP not found');
+    if (otpRecord.expiresAt < new Date()) throw new Error('OTP expired');
+
+    const valid = await bcrypt.compare(code, otpRecord.codeHash);
+    if (!valid) throw new Error('Invalid OTP');
+
+    await this.prisma.otp.update({
+      where: { id: otpRecord.id },
+      data: { used: true },
     });
 
-    // Send OTP via email
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Your OTP Code',
-      text: `Your OTP code is ${code}. It expires in 10 minutes.`,
-    });
-
-    return { message: 'OTP sent successfully' };
+    return { message: 'OTP verified successfully' };
   }
 }

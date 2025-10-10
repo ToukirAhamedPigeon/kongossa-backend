@@ -1,0 +1,164 @@
+// ------------------------------------------------------------
+// Prisma Schema — Rebuilt & Optimized for Role/Permission logic
+// ------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------
+// MODELS
+// ---------------------------
+
+model User {
+  id            Int      @id @default(autoincrement())
+  role          String
+  email         String   @unique
+  fullName      String
+  phoneNumber   String   @unique
+  phoneVerified Boolean  @default(false)
+  kycStatus     String   @default("pending")
+  walletBalance Float    @default(0)
+  currency      String   @default("USD")
+  referralCode  String   @unique
+  referredBy    String?
+  accountType   String   @default("personal")
+  agentStatus   String?  @default("pending")
+  businessName  String?
+  profileImage  String
+  address       String
+  country       String
+  dateOfBirth   DateTime
+  rewardsPoints Float    @default(0)
+  qrCode        String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  passwordHash  String?
+
+  // Relations
+  transactionLimits    TransactionLimits?
+  sentTransactions     Transaction[]      @relation("SentTransactions")
+  receivedTransactions Transaction[]      @relation("ReceivedTransactions")
+  refreshTokens        RefreshToken[]
+  userRoles            UserRole[]
+  otps                 Otp[]
+
+  @@map("User")
+}
+
+model TransactionLimits {
+  id            Int   @id @default(autoincrement())
+  userId        Int   @unique
+  daily         Float
+  weeklyBudget  Float @default(0)
+  monthlyBudget Float @default(0)
+  yearlyBudget  Float @default(0)
+  user          User  @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("TransactionLimits")
+}
+
+model Transaction {
+  id              Int      @id @default(autoincrement())
+  transactionId   String   @unique
+  senderId        Int
+  recipientId     Int?
+  amount          Float
+  currency        String   @default("USD")
+  type            String
+  status          String   @default("pending")
+  paymentMethod   String?
+  description     String?
+  fee             Float    @default(0)
+  exchangeRate    Float?
+  referenceNumber String?
+  qrCode          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sender    User  @relation("SentTransactions", fields: [senderId], references: [id])
+  recipient User? @relation("ReceivedTransactions", fields: [recipientId], references: [id])
+
+  @@map("Transaction")
+}
+
+model Role {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  description     String?
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  // Optional direct field for permissions if you want to simplify:
+  // permissions String[] @default([])
+
+  @@map("Role")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  action          String
+  resource        String
+  description     String?
+  rolePermissions RolePermission[]
+
+  @@unique([action, resource])
+  @@map("Permission")
+}
+
+model UserRole {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  roleId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("UserRole")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([roleId, permissionId], name: "role_permission_unique") // ✅ named composite unique
+  @@map("RolePermission")
+}
+
+model RefreshToken {
+  id           Int           @id @default(autoincrement())
+  tokenHash    String
+  userId       Int
+  expiresAt    DateTime
+  revoked      Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  replacedById Int?          @unique // ✅ required for one-to-one
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  replacedBy   RefreshToken? @relation("ReplacedBy", fields: [replacedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  replacement  RefreshToken? @relation("ReplacedBy")
+
+  @@map("RefreshToken")
+}
+
+model Otp {
+  id        Int      @id @default(autoincrement())
+  email     String
+  codeHash  String
+  purpose   String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  attempts  Int      @default(0)
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("Otp")
+}
