@@ -85,7 +85,7 @@ export class AuthController {
       await this.otpService.verifyOtp(email, code, purpose);
 
       // generate tokens + save refresh in cookie
-      const { accessToken, refreshToken, userInfo } =
+      const { accessToken, refreshToken, userInfo, refreshTokenExpires } =
         await this.authService.generateTokensAfterOtp(email);
 
       res.cookie('refreshToken', refreshToken, {
@@ -96,7 +96,7 @@ export class AuthController {
         domain: process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined,
       });
 
-      return { message: 'Login successful', accessToken, user: userInfo };
+      return { message: 'Login successful', accessToken, refreshTokenExpires, user: userInfo };
     } catch (error) {
       return { message: 'OTP verification failed', error: error.message };
     }
@@ -105,13 +105,18 @@ export class AuthController {
   // Refresh Token → reissue access token
   @Post('refresh-token')
   async refreshToken(@Req() req: Request) {
-    const refreshToken = req.cookies['refreshToken'];
-    if (!refreshToken) throw new Error('Refresh token missing');
+    try{
+      const refreshToken = req.cookies['refreshToken'];
+      if (!refreshToken) throw new Error('Refresh token missing');
 
-    const { accessToken, userInfo } =
-      await this.authService.refreshAccessToken(refreshToken);
+      const { accessToken, userInfo, refreshTokenExpires } =
+        await this.authService.refreshAccessToken(refreshToken);
 
-    return { accessToken, user: userInfo };
+      return { accessToken, refreshTokenExpires, user: userInfo };
+    } catch (error) {
+      console.log('Refresh token error:', error.message);
+      return { message: 'Refresh token failed', error: error.message };
+    }
   }
 
   // Logout
@@ -119,7 +124,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try{
-      console.log('Logout request received');
       const refreshToken = req.cookies['refreshToken'];
       if (refreshToken) await this.authService.revokeRefreshToken(refreshToken);
       
@@ -174,4 +178,18 @@ export class AuthController {
   getProfile(@Req() req: any) {
     return req.user;
   }
+
+   // Forgot password
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string, @Body('domain') domain: string) {
+    return this.authService.forgotPassword(email, domain);
+  }
+
+  // Reset password
+  @Post('reset-password')
+  async resetPassword(@Body() body: { token: string; password: string }) {
+    const { token, password } = body;
+    return this.authService.resetPassword(token, password);
+  }
+
 }

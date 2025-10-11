@@ -12,7 +12,7 @@ import { PassportModule } from '@nestjs/passport';
   imports: [
     PrismaModule,
     MailModule,
-    PassportModule, // 🔹 Add this
+    PassportModule,
     JwtModule.register({
       global: true,
       secret: process.env.JWT_ACCESS_SECRET || 'default-secret',
