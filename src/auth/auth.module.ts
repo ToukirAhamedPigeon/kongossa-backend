@@ -7,6 +7,7 @@ import { OtpService } from './otp.service';
 import { MailModule } from 'src/mail/mail.module';
 import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
+import type { StringValue } from 'ms';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { PassportModule } from '@nestjs/passport';
     JwtModule.register({
       global: true,
       secret: process.env.JWT_ACCESS_SECRET || 'default-secret',
-      signOptions: { expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m' },
+      signOptions: { expiresIn: (process.env.JWT_ACCESS_EXPIRATION as StringValue) || '15m' },
     }),
   ],
   controllers: [AuthController],

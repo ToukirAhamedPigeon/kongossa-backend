@@ -7,9 +7,15 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { RolesModule } from './roles/roles.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppConfigModule  } from './config/config.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
     AppConfigModule,       // Loads environment variables
     PrismaModule,       // Provides database access (PrismaService)
     AuthModule,         // Authentication & authorization

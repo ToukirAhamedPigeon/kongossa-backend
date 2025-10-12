@@ -33,7 +33,7 @@ model User {
   legalFormDocument   String?
   walletBalance Float    @default(0)
   currency      String   @default("USD")
-  referralCode  String   @unique
+  referralCode  String?   @unique
   referredBy    String?
   accountType   String   @default("personal")
   agentStatus   String?  @default("pending")

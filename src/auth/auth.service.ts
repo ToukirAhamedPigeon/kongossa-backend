@@ -1,10 +1,12 @@
 import { Injectable, UnauthorizedException,NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import type { StringValue } from 'ms';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import { OtpService } from './otp.service';
 import { MailService } from './../mail/mail.service';
+import * as QRCode from 'qrcode';
 
 @Injectable()
 export class AuthService {
@@ -35,28 +37,36 @@ export class AuthService {
 
       const roleName = userCount === 0 ? 'admin' : 'user';
       const role = await this.prisma.role.findUnique({ where: { name: roleName } });
+      const uniqueData = `KONGOSSA_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+      const qrCode = await QRCode.toDataURL(uniqueData);
 
       // Create user
-      const user = await this.prisma.user.create({
-        data: {
-          email: userData.email,
-          fullName: userData.fullName,
-          passwordHash: hash,
-          role: roleName,
-          walletBalance: 0,
-          currency: 'USD',
-          referralCode: userData.referralCode || '',
-          qrCode: '',
-          profileImage: userData.profileImage || '',
-          phoneNumber: userData.phoneNumber || '',
-          address: userData.address || '',
-          country: userData.country || '',
-          dateOfBirth: userData.dateOfBirth
-            ? new Date(userData.dateOfBirth)
-            : new Date(),
-        },
-      });
-
+     const user = await this.prisma.user.create({
+      data: {
+        email: userData.email,
+        fullName: userData.fullName,
+        passwordHash: hash,
+        role: roleName,
+        walletBalance: 0,
+        currency: 'USD',
+        referralCode: userData.referralCode || null,
+        qrCode,
+        profileImage: userData.profileImage || '',
+        phoneNumber: userData.phoneNumber || '',
+        address: userData.address || '',
+        country: userData.country || '',
+        companyName: userData.companyName || null,
+        legalForm: userData.legalForm || null,
+        managerName: userData.managerName || null,
+        companyPhone: userData.companyPhone || null,
+        companyAddress: userData.companyAddress || null,
+        businessDescription: userData.businessDescription || null,
+        legalFormDocument: userData.legalFormDocument || null,
+        dateOfBirth: userData.dateOfBirth
+          ? new Date(userData.dateOfBirth)
+          : new Date(),
+      },
+    });
       // Link to Role in UserRole table
       await this.prisma.userRole.create({
         data: {
@@ -89,12 +99,17 @@ export class AuthService {
       throw error;
     }
   }
+  async login(identifier: string, password: string, rememberMe: boolean = false) {
+    // Find user by email OR phone number
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: identifier },
+          { phoneNumber: identifier },
+        ],
+      },
+    });
 
-
-
-  // Login user
-   async login(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(password, user.passwordHash || '');
@@ -102,30 +117,39 @@ export class AuthService {
 
     await this.otpService.sendOtp(user.email, 'login');
 
-    return { otp_required: true, email: user.email, message: 'OTP sent to email' };
+    return {
+      otp_required: true,
+      email: user.email,
+      message: 'OTP sent to email',
+      rememberMe, // forward for OTP verification
+    };
   }
 
   // Generate tokens after OTP verification
-  async generateTokensAfterOtp(email: string) {
+  async generateTokensAfterOtp(email: string, rememberMe: boolean = false) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException('User not found');
 
     const payload = { sub: user.id, email: user.email, role: user.role };
-
+    // console.log(rememberMe);
+    const refreshTokenExpiryMs = rememberMe 
+    ? 30 * 24 * 60 * 60 * 1000 // 30 days
+    : 2 * 24 * 60 * 60 * 1000; // 2 days default
     const accessToken = this.jwtService.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET,
-      expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
+      expiresIn: (process.env.JWT_ACCESS_EXPIRATION as StringValue) || '15m'
     });
 
     const refreshTokenRaw = randomBytes(64).toString('hex');
     const refreshTokenHash = await bcrypt.hash(refreshTokenRaw, 12);
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+    const expiresAt = new Date(Date.now() + refreshTokenExpiryMs);
+    // console.log('Refresh token expires at:', expiresAt);
 
     await this.prisma.refreshToken.create({
       data: {
         tokenHash: refreshTokenHash,
         userId: user.id,
-        expiresAt, // 48h
+        expiresAt, 
       },
     });
 
@@ -181,7 +205,7 @@ export class AuthService {
 
           const newAccessToken = this.jwtService.sign(payload, {
             secret: process.env.JWT_ACCESS_SECRET,
-            expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
+            expiresIn: (process.env.JWT_ACCESS_EXPIRATION as StringValue) || '15m'
           });
 
           const userRoles = await this.prisma.userRole.findMany({
@@ -250,7 +274,7 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET,
-      expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
+      expiresIn: (process.env.JWT_ACCESS_EXPIRATION as StringValue) || '15m'
     });
 
     const refreshTokenRaw = randomBytes(64).toString('hex');

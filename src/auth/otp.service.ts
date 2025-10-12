@@ -15,7 +15,7 @@ export class OtpService {
   // Send OTP (for first time or resend)
   async sendOtp(email: string, purpose: string) {
     try{
-      console.log(email, purpose);
+      // console.log(email, purpose);
       const user = await this.prisma.user.findUnique({ where: { email } });
       if (!user) throw new Error('User not found');
 

@@ -7,12 +7,18 @@ import {
   Patch,
   UseGuards,
   Res,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { Request, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
+import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -23,33 +29,37 @@ export class AuthController {
 
   // Register user → sends OTP
   @Post('register')
-  async register(@Body() body: any) {
-    const {
-      email,
-      password,
-      fullName,
-      phoneNumber,
-      country,
-      dateOfBirth,
-      referralCode,
-    } = body;
+   @UseInterceptors(
+    FileInterceptor('legalFormDocument', {
+      storage: diskStorage({
+        destination: './uploads/legal_docs',
+        filename: (req, file, cb) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  async register(
+    @Body() body: any,
+    @UploadedFile() legalFormDocument: Express.Multer.File,
+  ) {
+    const filePath = legalFormDocument ? `uploads/legal_docs/${legalFormDocument.filename}` : null;
+    // console.log(filePath);
+    // console.log(body);
     const user = await this.authService.register({
-      email,
-      password,
-      fullName,
-      phoneNumber,
-      country,
-      dateOfBirth,
-      referralCode,
+      ...body,
+      legalFormDocument: filePath,
     });
     return user;
   }
 
   // Login → only OTP (no tokens)
   @Post('login')
-  async login(@Body() body: any) {
-    const { email, password } = body;
-    return this.authService.login(email, password);
+  async login(@Body() body: LoginDto) {
+    const { identifier, password, rememberMe } = body;
+    return this.authService.login(identifier, password, rememberMe);
   }
 
   // Send OTP manually
@@ -76,7 +86,7 @@ export class AuthController {
   @Post('verify-otp')
   async verifyOtp(@Body() body: any, @Res({ passthrough: true }) res: Response) {
     try{
-      const { email, code, purpose } = body;
+      const { email, code, purpose, rememberMe } = body;
 
       if (purpose === 'register') {
         return this.otpService.verifyOtp(email, code, purpose);
@@ -86,7 +96,7 @@ export class AuthController {
 
       // generate tokens + save refresh in cookie
       const { accessToken, refreshToken, userInfo, refreshTokenExpires } =
-        await this.authService.generateTokensAfterOtp(email);
+        await this.authService.generateTokensAfterOtp(email, rememberMe);
 
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
