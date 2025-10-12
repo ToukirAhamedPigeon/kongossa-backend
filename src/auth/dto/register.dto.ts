@@ -17,15 +17,48 @@ export class RegisterDto {
   @IsString()
   phoneNumber?: string;
 
-  @IsOptional()
   @IsString()
-  country?: string;
+  role: string;
+
+  // @IsOptional()
+  // @IsString()
+  // country?: string;
+
+  // @IsOptional()
+  // @IsString()
+  // dateOfBirth?: string; // YYYY-MM-DD
+
+  // @IsOptional()
+  // @IsString()
+  // referralCode?: string;
 
   @IsOptional()
   @IsString()
-  dateOfBirth?: string; // YYYY-MM-DD
+  companyName?: string;
 
   @IsOptional()
   @IsString()
-  referralCode?: string;
+  legalForm?: string;
+
+  @IsOptional()
+  @IsString()
+  managerName?: string;
+
+  @IsOptional()
+  @IsString()
+  companyPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  companyAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  businessDescription?: string;
+
+  @IsOptional()
+  @IsString()
+  legalFormDocument?: string;
 }
+
+

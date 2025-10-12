@@ -6,7 +6,7 @@ async function main() {
   console.log('Seeding database...');
 
   // --- Create Roles ---
-  const roles = ['admin', 'user'];
+  const roles = ['personal','merchant','admin', 'user'];
   const roleRecords: { id: number; name: string; description: string | null }[] = [];
 
   for (const roleName of roles) {

@@ -23,6 +23,14 @@ model User {
   phoneNumber   String   @unique
   phoneVerified Boolean  @default(false)
   kycStatus     String   @default("pending")
+  approvalStatus String  @default("pending")
+  companyName         String?
+  legalForm           String?
+  managerName         String?
+  companyPhone        String?
+  companyAddress      String?
+  businessDescription String?
+  legalFormDocument   String?
   walletBalance Float    @default(0)
   currency      String   @default("USD")
   referralCode  String   @unique
@@ -51,6 +59,7 @@ model User {
 
   @@map("User")
 }
+
 
 model TransactionLimits {
   id            Int   @id @default(autoincrement())
