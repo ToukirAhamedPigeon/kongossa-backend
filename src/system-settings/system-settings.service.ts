@@ -9,6 +9,19 @@ export class SystemSettingsService {
   async getSettings() {
     return this.prisma.systemSettings.findFirst();
   }
+  
+  async createSettings(data: UpdateSystemSettingsDto) {
+    // If a record already exists, prevent duplicates
+    const existing = await this.prisma.systemSettings.findFirst();
+    if (existing) {
+      return {
+        message: 'Settings already exist. Use PATCH to update.',
+        settings: existing,
+      };
+    }
+
+    return this.prisma.systemSettings.create({ data });
+  }
 
   async updateSettings(data: UpdateSystemSettingsDto) {
     const settings = await this.prisma.systemSettings.findFirst();

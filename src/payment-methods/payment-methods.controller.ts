@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { PaymentMethodsService } from './payment-methods.service';
 import { CreatePaymentMethodDto } from './dto/create-payment-method.dto';
 import { UpdatePaymentMethodDto } from './dto/update-payment-method.dto';
@@ -14,9 +14,10 @@ export class PaymentMethodsController {
   }
 
   @Get()
-  findAll() {
-    const userId = 1; // TODO: Replace with actual user ID from Auth
-    return this.service.findAll(userId);
+  findAll(@Query('user_id') userId?: string) {
+    // fallback or convert to number
+    const id = Number(userId) || 1; // optional: handle missing user ID
+    return this.service.findAll(id);
   }
 
   @Get(':id')

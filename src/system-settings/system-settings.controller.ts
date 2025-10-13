@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body } from '@nestjs/common';
 import { SystemSettingsService } from './system-settings.service';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 
@@ -9,6 +9,11 @@ export class SystemSettingsController {
   @Get()
   async getSettings() {
     return this.service.getSettings();
+  }
+  
+  @Post()
+  async createSettings(@Body() dto: UpdateSystemSettingsDto) {
+    return this.service.createSettings(dto);
   }
 
   @Patch()
