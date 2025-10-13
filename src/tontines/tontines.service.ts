@@ -13,14 +13,26 @@ export class TontinesService {
     });
   }
 
-  async findAll() {
+  async findAll(filters: any = {}, page = 1, limit = 20) {
+    const where: any = {};
+
+    // Apply filters if present
+    if (filters.name) where.name = { contains: filters.name, mode: 'insensitive' };
+    if (filters.status) where.status = filters.status;
+    if (filters.creatorId) where.creatorId = Number(filters.creatorId);
+    if (filters.coAdminId) where.coAdminId = Number(filters.coAdminId);
+    if (filters.inviteCode) where.inviteCode = filters.inviteCode;
+
     return this.prisma.tontine.findMany({
+      where,
       include: {
         creator: true,
         coAdmin: true,
         members: true,
         contributions: true,
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
   }
 

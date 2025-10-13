@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { TontinesService } from './tontines.service';
 import { CreateTontineDto } from './dto/create-tontine.dto';
 import { UpdateTontineDto } from './dto/update-tontine.dto';
@@ -13,8 +13,16 @@ export class TontinesController {
   }
 
   @Get()
-  findAll() {
-    return this.tontinesService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query() filters?: any
+  ) {
+    return this.tontinesService.findAll(
+      filters,
+      Number(page) || 1,
+      Number(limit) || 20
+    );
   }
 
   @Get(':id')

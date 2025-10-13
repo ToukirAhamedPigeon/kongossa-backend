@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { TontineContributionsService } from './tontine-contributions.service';
 import { CreateTontineContributionDto } from './dto/create-tontine-contribution.dto';
 import { UpdateTontineContributionDto } from './dto/update-tontine-contribution.dto';
@@ -13,8 +13,8 @@ export class TontineContributionsController {
   }
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query() query: any) {
+    return this.service.findAll(query); // Delegate filtering to the service
   }
 
   @Get(':id')

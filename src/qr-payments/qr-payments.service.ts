@@ -13,8 +13,33 @@ export class QRPaymentsService {
     });
   }
 
-  async findAll() {
+  async findAll(query?: {
+    qrCode?: string;
+    recipientId?: number;
+    amount?: number;
+    currency?: string;
+    description?: string;
+    isActive?: boolean;
+    expiryDate?: Date;
+    usageLimit?: number;
+    usageCount?: number;
+    paymentType?: string;
+  }) {
+    const filters: any = {};
+    
+    if (query?.qrCode) filters.qrCode = query.qrCode;
+    if (query?.recipientId) filters.recipientId = query.recipientId;
+    if (query?.amount) filters.amount = query.amount;
+    if (query?.currency) filters.currency = query.currency;
+    if (query?.description) filters.description = query.description;
+    if (query?.isActive !== undefined) filters.isActive = query.isActive;
+    if (query?.expiryDate) filters.expiryDate = query.expiryDate;
+    if (query?.usageLimit) filters.usageLimit = query.usageLimit;
+    if (query?.usageCount) filters.usageCount = query.usageCount;
+    if (query?.paymentType) filters.paymentType = query.paymentType;
+
     return this.prisma.qRPayment.findMany({
+      where: filters,
       include: { recipient: true },
     });
   }

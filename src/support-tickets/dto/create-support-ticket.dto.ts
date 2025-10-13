@@ -12,6 +12,11 @@ export class CreateSupportTicketDto {
   @IsNotEmpty()
   description: string;
 
+  
+  @IsOptional()
+  @IsString()
+  status?: string;
+
   @IsString()
   @IsOptional()
   category?: string;

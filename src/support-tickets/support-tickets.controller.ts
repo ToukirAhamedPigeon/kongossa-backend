@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query } from '@nestjs/common';
 import { SupportTicketsService } from './support-tickets.service';
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { UpdateSupportTicketDto } from './dto/update-support-ticket.dto';
+import { SupportTicketQueryDto } from './dto/support-ticket-query.dto';
 
 @Controller('support-tickets')
 export class SupportTicketsController {
@@ -13,8 +14,8 @@ export class SupportTicketsController {
   }
 
   @Get()
-  findAll() {
-    return this.supportTicketsService.findAll();
+  findAll(@Query() query: SupportTicketQueryDto) {
+    return this.supportTicketsService.findAll(query);
   }
 
   @Get(':id')

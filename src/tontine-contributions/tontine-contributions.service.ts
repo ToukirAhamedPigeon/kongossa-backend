@@ -11,8 +11,20 @@ export class TontineContributionsService {
     return this.prisma.tontineContribution.create({ data: dto });
   }
 
-  async findAll() {
+   async findAll(query: any) {
+    const where: any = {};
+
+    if (query.tontineId) where.tontineId = Number(query.tontineId);
+    if (query.userId) where.userId = Number(query.userId);
+    if (query.amount) where.amount = Number(query.amount);
+    if (query.currency) where.currency = query.currency;
+    if (query.status) where.status = query.status;
+    if (query.roundNumber) where.roundNumber = Number(query.roundNumber);
+    if (query.transactionId) where.transactionId = query.transactionId;
+    if (query.paymentMethod) where.paymentMethod = query.paymentMethod;
+
     return this.prisma.tontineContribution.findMany({
+      where,
       include: { user: true, tontine: true },
     });
   }

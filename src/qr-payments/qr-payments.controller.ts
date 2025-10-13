@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { QRPaymentsService } from './qr-payments.service';
 import { CreateQRPaymentDto } from './dto/create-qr-payment.dto';
 import { UpdateQRPaymentDto } from './dto/update-qr-payment.dto';
@@ -13,9 +13,33 @@ export class QRPaymentsController {
   }
 
   @Get()
-  findAll() {
-    return this.qrPaymentsService.findAll();
+  findAll(
+    @Query('qrCode') qrCode?: string,
+    @Query('recipientId', ParseIntPipe) recipientId?: number,
+    @Query('amount') amount?: number,
+    @Query('currency') currency?: string,
+    @Query('description') description?: string,
+    @Query('isActive') isActive?: boolean,
+    @Query('expiryDate') expiryDate?: string,
+    @Query('usageLimit') usageLimit?: number,
+    @Query('usageCount') usageCount?: number,
+    @Query('paymentType') paymentType?: string,
+  ) {
+    const query = {
+      qrCode,
+      recipientId,
+      amount,
+      currency,
+      description,
+      isActive,
+      expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+      usageLimit,
+      usageCount,
+      paymentType,
+    };
+    return this.qrPaymentsService.findAll(query);
   }
+
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
