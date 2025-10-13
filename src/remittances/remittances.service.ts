@@ -13,11 +13,22 @@ export class RemittancesService {
     });
   }
 
-  async findAll() {
+  async findAll(filters: any) {
+    const where: any = {};
+
+    if (filters.agentId) where.agentId = Number(filters.agentId);
+    if (filters.status) where.status = filters.status;
+    if (filters.transactionId) where.transactionId = filters.transactionId;
+    if (filters.sourceCurrency) where.sourceCurrency = filters.sourceCurrency;
+    if (filters.destinationCurrency) where.destinationCurrency = filters.destinationCurrency;
+
+    // You can add more optional filters if needed
     return this.prisma.remittance.findMany({
+      where,
       include: { agent: true },
     });
   }
+
 
   async findOne(id: number) {
     const remittance = await this.prisma.remittance.findUnique({

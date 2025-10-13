@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query } from '@nestjs/common';
 import { SavedContactsService } from './saved-contacts.service';
 import { CreateSavedContactDto } from './dto/create-saved-contact.dto';
 import { UpdateSavedContactDto } from './dto/update-saved-contact.dto';
@@ -13,8 +13,8 @@ export class SavedContactsController {
   }
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query() filters: any) {
+    return this.service.findAll(filters);
   }
 
   @Get(':id')

@@ -12,9 +12,9 @@ export class RemittancesController {
     return this.remittancesService.create(createRemittanceDto);
   }
 
-  @Get()
-  findAll() {
-    return this.remittancesService.findAll();
+ @Post('filter')
+  filterRemittances(@Body() filters: any) {
+    return this.remittancesService.findAll(filters);
   }
 
   @Get(':id')

@@ -13,9 +13,13 @@ export class FloatRequestsService {
     });
   }
 
-  async findAll() {
+  async findAll(filters?: { agentId?: number; status?: string }) {
     return this.prisma.floatRequest.findMany({
-      include: { agent: true }, // include related User
+      where: {
+        ...(filters?.agentId && { agentId: Number(filters.agentId) }),
+        ...(filters?.status && { status: filters.status }),
+      },
+      include: { agent: true },
     });
   }
 

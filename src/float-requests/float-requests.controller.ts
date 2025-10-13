@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { FloatRequestsService } from './float-requests.service';
 import { CreateFloatRequestDto } from './dto/create-float-request.dto';
 import { UpdateFloatRequestDto } from './dto/update-float-request.dto';
@@ -13,8 +13,8 @@ export class FloatRequestsController {
   }
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query('agentId') agentId?: number, @Query('status') status?: string) {
+    return this.service.findAll({ agentId, status });
   }
 
   @Get(':id')
