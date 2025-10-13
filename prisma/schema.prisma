@@ -56,6 +56,17 @@ model User {
   userRoles            UserRole[]
   otps                 Otp[]
   passwordResets       PasswordReset[]
+  paymentMethods         PaymentMethod[]
+  supportTickets         SupportTicket[]
+  assignedSupportTickets SupportTicket[] @relation("SupportAssignedTo")
+  tontinesCreated        Tontine[]           @relation("TontineCreator")
+  tontineCoAdminFor      Tontine[]           @relation("TontineCoAdmin")
+  tontineMembers         TontineMember[]
+  tontineContributions   TontineContribution[]
+  qrPayments             QRPayment[]         @relation("QRRecipient")
+  remittancesAsAgent     Remittance[]        @relation("RemittanceAgent")
+  savedContacts          SavedContact[]      @relation("SavedContactAgent")
+  floatRequests          FloatRequest[]      @relation("FloatRequestAgent")
 
   @@map("User")
 }
@@ -184,4 +195,211 @@ model PasswordReset {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("PasswordReset")
+}
+
+model PaymentMethod {
+  id            Int     @id @default(autoincrement())
+  userId        Int
+  type          String
+  provider      String? 
+  accountName   String?
+  accountNumber String?
+  bankName      String?
+  expiryDate    String?     // stored as text (per your Base44)
+  isDefault     Boolean     @default(false)
+  isVerified    Boolean     @default(false)
+  lastFour      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("PaymentMethod")
+  @@index([userId])
+}
+
+model SupportTicket {
+  id           Int       @id @default(autoincrement())
+  ticketId     String?   @unique
+  userId       Int
+  subject      String
+  description  String
+  category     String?
+  priority     String    @default("medium")
+  status       String    @default("open")
+  assignedToId Int?      // admin user id (optional)
+  attachments  String[]  @default([])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  assignedTo User?      @relation("SupportAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@map("SupportTicket")
+  @@index([userId])
+  @@index([assignedToId])
+}
+
+model Tontine {
+  id                    Int       @id @default(autoincrement())
+  name                  String
+  description           String?
+  type                  String
+  contributionAmount    Float
+  currency              String    @default("USD")
+  contributionFrequency String
+  payoutInterval        String?
+  startDate             DateTime?
+  nextPayoutDate        DateTime?
+  status                String    @default("forming")
+  payoutOrder           Int[]     @default([])   // array of user ids, order of payouts
+  currentRound          Int       @default(1)
+  totalPot              Float     @default(0)
+  maxMembers            Int?
+  inviteCode            String?   @unique
+  paymentMethods        String[]  @default([])    // accepted payment methods (strings)
+  notificationSettings  Json?                        // store object: { payment_reminders: true, ... }
+  creatorId             Int
+  coAdminId             Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator   User        @relation("TontineCreator", fields: [creatorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  coAdmin   User?       @relation("TontineCoAdmin", fields: [coAdminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  members   TontineMember[]
+  contributions TontineContribution[]
+
+  @@map("Tontine")
+  @@index([creatorId])
+  @@index([coAdminId])
+}
+
+model TontineMember {
+  id        Int     @id @default(autoincrement())
+  tontineId Int
+  userId    Int
+  joinedAt  DateTime @default(now())
+  role      String?  // e.g., member, admin
+  isActive  Boolean  @default(true)
+
+  tontine Tontine @relation(fields: [tontineId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([tontineId, userId], name: "tontine_member_unique")
+  @@map("TontineMember")
+  @@index([tontineId])
+  @@index([userId])
+}
+
+model TontineContribution {
+  id              Int      @id @default(autoincrement())
+  tontineId       Int
+  userId          Int
+  amount          Float
+  currency        String   @default("USD")
+  contributionDate DateTime?
+  roundNumber     Int
+  paymentMethod   String?
+  status          String   @default("pending")
+  transactionId   String?
+  createdAt       DateTime @default(now())
+
+  tontine Tontine @relation(fields: [tontineId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("TontineContribution")
+  @@index([tontineId])
+  @@index([userId])
+}
+
+model QRPayment {
+  id          Int      @id @default(autoincrement())
+  qrCode      String   @unique
+  recipientId Int
+  amount      Float?
+  currency    String   @default("USD")
+  description String?
+  isActive    Boolean  @default(true)
+  expiryDate  DateTime?
+  usageLimit  Int?
+  usageCount  Int      @default(0)
+  paymentType String   @default("one_time") // one_time, recurring, open_amount
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  recipient User @relation("QRRecipient", fields: [recipientId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("QRPayment")
+  @@index([recipientId])
+}
+
+model Remittance {
+  id                  Int      @id @default(autoincrement())
+  agentId             Int
+  senderDetails       Json     // { name, phone, country }
+  recipientDetails    Json     // { name, phone, country, bank_name, account_number }
+  bankName            String?
+  accountNumber       String?
+  sourceAmount        Float
+  sourceCurrency      String?
+  destinationAmount   Float?
+  destinationCurrency String?
+  exchangeRate        Float?
+  deliveryMethod      String
+  status              String   @default("pending")
+  transactionId       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  agent User @relation("RemittanceAgent", fields: [agentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("Remittance")
+  @@index([agentId])
+}
+
+model SavedContact {
+  id          Int    @id @default(autoincrement())
+  agentId     Int
+  contactType String
+  name        String
+  phone       String?
+  country     String?
+  bankName    String?
+  accountNumber String?
+  createdAt   DateTime @default(now())
+
+  agent User @relation("SavedContactAgent", fields: [agentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("SavedContact")
+  @@index([agentId])
+}
+
+model SystemSettings {
+  id                  Int     @id @default(autoincrement())
+  transferFeePercent  Float   @default(1.5)
+  withdrawalFeeFlat   Float   @default(2.5)
+  forexMarkupPercent  Float   @default(2.0)
+  cryptoMarkupPercent Float   @default(2.5)
+  tontineFeePercent   Float   @default(0.5)
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
+
+  @@map("SystemSettings")
+}
+
+model FloatRequest {
+  id        Int      @id @default(autoincrement())
+  agentId   Int
+  amount    Float
+  currency  String   @default("USD")
+  status    String   @default("pending")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agent User @relation("FloatRequestAgent", fields: [agentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("FloatRequest")
+  @@index([agentId])
 }
