@@ -9,6 +9,7 @@ import {
   Res,
   UseInterceptors,
   UploadedFile,
+  Param,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -27,179 +28,126 @@ export class AuthController {
     private readonly otpService: OtpService,
   ) {}
 
-  // Register user → sends OTP
+  // -------------------
+  // Existing routes
+  // -------------------
   @Post('register')
-   @UseInterceptors(
+  @UseInterceptors(
     FileInterceptor('legalFormDocument', {
       storage: diskStorage({
         destination: './uploads/legal_docs',
         filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
         },
       }),
     }),
   )
-  async register(
-    @Body() body: any,
-    @UploadedFile() legalFormDocument: Express.Multer.File,
-  ) {
-    const filePath = legalFormDocument ? `uploads/legal_docs/${legalFormDocument.filename}` : null;
-    // console.log(filePath);
-    // console.log(body);
-    const user = await this.authService.register({
-      ...body,
-      legalFormDocument: filePath,
-    });
+  async register(@Body() body: any, @UploadedFile() legalFormDocument: Express.Multer.File) {
+    const filePath = legalFormDocument
+      ? `uploads/legal_docs/${legalFormDocument.filename}`
+      : null;
+    const user = await this.authService.register({ ...body, legalFormDocument: filePath });
     return user;
   }
 
-  // Login → only OTP (no tokens)
   @Post('login')
   async login(@Body() body: LoginDto) {
     const { identifier, password, rememberMe } = body;
     return this.authService.login(identifier, password, rememberMe);
   }
 
-  // Send OTP manually
   @Post('send-otp')
   async sendOtp(@Body() body: { email: string; purpose: string }) {
-    const { email, purpose } = body;
-    return this.otpService.sendOtp(email, purpose);
+    return this.otpService.sendOtp(body.email, body.purpose);
   }
 
-  // Resend OTP
   @Post('resend-otp')
   async resendOtp(@Body() body: { email: string; purpose: string }) {
-    try{
-      const { email, purpose } = body;
-      return this.otpService.sendOtp(email, purpose);
-    }
-    catch (error) {
-      console.log(error);
-      throw new Error(error.message);
-    }
+    return this.otpService.sendOtp(body.email, body.purpose);
   }
 
-  // Verify OTP → generate tokens if login
   @Post('verify-otp')
   async verifyOtp(@Body() body: any, @Res({ passthrough: true }) res: Response) {
-    try{
-      const { email, code, purpose, rememberMe } = body;
+    const { email, code, purpose, rememberMe } = body;
 
-      if (purpose === 'register') {
-        return this.otpService.verifyOtp(email, code, purpose);
-      }
+    // ✅ Verify OTP
+    await this.otpService.verifyOtp(email, code, purpose);
 
-      await this.otpService.verifyOtp(email, code, purpose);
+    // ✅ Mark email as verified if not already (new feature)
+    await this.authService.markEmailVerified(email);
 
-      // generate tokens + save refresh in cookie
-      const { accessToken, refreshToken, userInfo, refreshTokenExpires } =
-        await this.authService.generateTokensAfterOtp(email, rememberMe);
-
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' ? true : false,
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 48 * 60 * 60 * 1000, // 48h
-        domain: process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined,
-      });
-
-      return { message: 'Login successful', accessToken, refreshTokenExpires, user: userInfo };
-    } catch (error) {
-      return { message: 'OTP verification failed', error: error.message };
+    if (purpose === 'register') {
+      return { message: 'OTP verified successfully', emailVerified: true };
     }
+
+    // generate tokens after login OTP verification
+    const { accessToken, refreshToken, userInfo, refreshTokenExpires } =
+      await this.authService.generateTokensAfterOtp(email, rememberMe);
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 48 * 60 * 60 * 1000, // 48h
+      domain: process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined,
+    });
+
+    return { message: 'Login successful', accessToken, refreshTokenExpires, user: userInfo };
   }
 
-  // Refresh Token → reissue access token
   @Post('refresh-token')
   async refreshToken(@Req() req: Request) {
-    try{
-      const refreshToken = req.cookies['refreshToken'];
-      if (!refreshToken) throw new Error('Refresh token missing');
+    const refreshToken = req.cookies['refreshToken'];
+    if (!refreshToken) return { message: 'Refresh token missing' };
 
-      const { accessToken, userInfo, refreshTokenExpires } =
-        await this.authService.refreshAccessToken(refreshToken);
-
-      return { accessToken, refreshTokenExpires, user: userInfo };
-    } catch (error) {
-      console.log('Refresh token error:', error.message);
-      return { message: 'Refresh token failed', error: error.message };
-    }
+    return this.authService.refreshAccessToken(refreshToken);
   }
 
-  // Logout
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    try{
-      const refreshToken = req.cookies['refreshToken'];
-      if (refreshToken) await this.authService.revokeRefreshToken(refreshToken);
-      
-      console.log('Refresh token revoked');
-      res.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' ? true : false,
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      });
+    const refreshToken = req.cookies['refreshToken'];
+    if (refreshToken) await this.authService.revokeRefreshToken(refreshToken);
 
-      return { message: 'Logged out successfully' };
-    } catch (error) {
-      console.log('Logout error:', error.message);
-      throw new Error(error.message);
-    }
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
+
+    return { message: 'Logged out successfully' };
   }
 
-  // Google OAuth
-  @Get('google')
-  @UseGuards(AuthGuard('google'))
-  async googleAuth() {}
-
-  @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req: Request) {
-    const { accessToken, refreshToken } = req.user as any;
-    const frontendUrl = `${process.env.FRONTEND_URL}/google-login-success`;
-    return `<!DOCTYPE html>
-      <html>
-        <body>
-          <script>
-            localStorage.setItem('access_token', '${accessToken}');
-            localStorage.setItem('refresh_token', '${refreshToken}');
-            window.location.href='${frontendUrl}';
-          </script>
-        </body>
-      </html>`;
-  }
-
-  // Change Password
-  @Patch('set-password')
-  @UseGuards(JwtAuthGuard)
-  async setPassword(@Req() req: any, @Body() body: any) {
-    const userId = req.user.id;
-    const { password } = body;
-    return this.authService.setPassword(userId, password);
-  }
-
-  // Get Logged-in User Info
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getProfile(@Req() req: any) {
     return req.user;
   }
 
-   // Forgot password
-  @Post('forgot-password')
-  async forgotPassword(@Body('email') email: string, @Body('domain') domain: string) {
-    return this.authService.forgotPassword(email, domain);
+  // -------------------
+  // New Email Verification APIs
+  // -------------------
+
+  // GET /auth/verify-email → returns verification status
+  @Get('verify-email')
+  @UseGuards(JwtAuthGuard)
+  async checkEmailVerified(@Req() req: any) {
+    const user = await this.authService.getUserById(req.user.id);
+    return { email: user.email, emailVerifiedAt: user.emailVerifiedAt };
   }
 
-  // Reset password
-  @Post('reset-password')
-  async resetPassword(@Body() body: { token: string; password: string }) {
-    const { token, password } = body;
-    return this.authService.resetPassword(token, password);
+  // GET /auth/verify-email/:id/:hash → confirm email verification
+  @Get('verify-email/:id/:hash')
+  async confirmEmail(@Param('id') id: string, @Param('hash') hash: string) {
+    const result = await this.authService.confirmEmailVerification(parseInt(id), hash);
+    return result;
   }
 
+  // POST /email/verification-notification → resend email verification
+  @Post('/email/verification-notification')
+  async resendEmailVerification(@Body('email') email: string) {
+    const result = await this.authService.resendEmailVerification(email);
+    return result;
+  }
 }

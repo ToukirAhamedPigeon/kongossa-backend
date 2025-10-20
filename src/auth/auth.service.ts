@@ -413,4 +413,58 @@ export class AuthService {
         throw error;
       }
     }
+
+    // ✅ New: mark email as verified if not already
+    async markEmailVerified(email: string) {
+      const user = await this.prisma.user.findUnique({ where: { email } });
+      if (!user) throw new NotFoundException('User not found');
+      if (!user.emailVerifiedAt) {
+        await this.prisma.user.update({
+          where: { email },
+          data: { emailVerifiedAt: new Date() },
+        });
+      }
+    }
+
+    // ✅ New: get user by ID
+    async getUserById(id: number) {
+      const user = await this.prisma.user.findUnique({ where: { id } });
+      if (!user) throw new NotFoundException('User not found');
+      return user;
+    }
+
+    // ✅ New: confirm email verification via link
+    async confirmEmailVerification(userId: number, hash: string) {
+      const user = await this.getUserById(userId);
+      // Simple hash check: hash = bcrypt hash of email
+      const valid = await bcrypt.compare(user.email, hash);
+      if (!valid) throw new BadRequestException('Invalid verification link');
+
+      if (!user.emailVerifiedAt) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { emailVerifiedAt: new Date() },
+        });
+      }
+
+      return { message: 'Email verified successfully' };
+    }
+
+    // ✅ New: resend email verification
+    async resendEmailVerification(email: string) {
+      const user = await this.prisma.user.findUnique({ where: { email } });
+      if (!user) throw new NotFoundException('User not found');
+      if (user.emailVerifiedAt) return { message: 'Email already verified' };
+
+      const hash = await bcrypt.hash(user.email, 12);
+      const verificationLink = `${process.env.FRONTEND_URL}/verify-email/${user.id}/${hash}`;
+
+      await this.mailService.sendMail(
+        email,
+        'Verify Your Email',
+        `Click here to verify your email: ${verificationLink}`
+      );
+
+      return { message: 'Verification email sent successfully' };
+    }
   }
