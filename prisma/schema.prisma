@@ -19,18 +19,19 @@ model User {
   id            Int      @id @default(autoincrement())
   role          String
   email         String   @unique
+  emailVerifiedAt DateTime?           // ✅ Added from Laravel migration
   fullName      String
-  phoneNumber   String   @unique
+  phoneNumber   String?  @unique
   phoneVerified Boolean  @default(false)
   kycStatus     String   @default("pending")
   approvalStatus String  @default("pending")
   companyName         String?
-  legalForm           String?
+  legalForm           String?  // matches company_legal_form
   managerName         String?
   companyPhone        String?
   companyAddress      String?
   businessDescription String?
-  legalFormDocument   String?
+  legalFormDocument   String?  // renamed from trade_register_document
   walletBalance Float    @default(0)
   currency      String   @default("USD")
   referralCode  String?   @unique
@@ -47,6 +48,13 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   passwordHash  String?
+  status        String   @default("active")    // ✅ Added from Laravel migration
+  rememberToken String?                         // ✅ Added
+  stripeId      String?                         // ✅ Added
+  pmType        String?                         // ✅ Added
+  pmLastFour    String?                         // ✅ Added
+  trialEndsAt   DateTime?                       // ✅ Added
+  userType      String   @default("personal")  // ✅ Added enum equivalent
 
   // Relations
   transactionLimits    TransactionLimits?
@@ -67,8 +75,10 @@ model User {
   remittancesAsAgent     Remittance[]        @relation("RemittanceAgent")
   savedContacts          SavedContact[]      @relation("SavedContactAgent")
   floatRequests          FloatRequest[]      @relation("FloatRequestAgent")
-
-  @@map("User")
+  subscriptions          Subscription[]
+  sessions Session[]
+  budgets Budget[]
+  
 }
 
 
@@ -114,22 +124,17 @@ model Role {
   description     String?
   userRoles       UserRole[]
   rolePermissions RolePermission[]
-
-  // Optional direct field for permissions if you want to simplify:
-  // permissions String[] @default([])
-
-  @@map("Role")
+  createdAt       DateTime @default(now())    // ✅ Added timestamps
+  updatedAt       DateTime @updatedAt
 }
 
 model Permission {
   id              Int              @id @default(autoincrement())
-  action          String
-  resource        String
+  name            String           @unique          // ✅ Changed to match Laravel
   description     String?
   rolePermissions RolePermission[]
-
-  @@unique([action, resource])
-  @@map("Permission")
+  createdAt       DateTime @default(now())       // ✅ Added timestamps
+  updatedAt       DateTime @updatedAt
 }
 
 model UserRole {
@@ -402,4 +407,158 @@ model FloatRequest {
 
   @@map("FloatRequest")
   @@index([agentId])
+}
+
+model Session {
+  id          String   @id
+  userId      Int?
+  ipAddress   String?  @db.VarChar(45)
+  userAgent   String?
+  payload     String
+  lastActivity Int
+  user        User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([userId])
+}
+
+model Cache {
+  key        String @id
+  value      String
+  expiration Int
+}
+
+model CacheLock {
+  key        String @id
+  owner      String
+  expiration Int
+}
+
+model Job {
+  id          Int      @id @default(autoincrement())
+  queue       String
+  payload     String
+  attempts    Int
+  reservedAt  Int?
+  availableAt Int
+  createdAt   Int
+  @@index([queue])
+}
+
+model JobBatch {
+  id           String   @id
+  name         String
+  totalJobs    Int
+  pendingJobs  Int
+  failedJobs   Int
+  failedJobIds String
+  options      String?
+  cancelledAt  Int?
+  createdAt    Int
+  finishedAt   Int?
+}
+
+model FailedJob {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique
+  connection String
+  queue      String
+  payload    String
+  exception  String
+  failedAt   DateTime @default(now())
+}
+
+// --------------------
+// Budget / Expense
+// --------------------
+model Budget {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  name      String
+  period    String   @default("monthly")
+  totalAmount Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories BudgetCategory[]
+}
+
+model BudgetCategory {
+  id           Int     @id @default(autoincrement())
+  budgetId     Int
+  description  String?
+  name         String
+  color        String?
+  limitAmount  Float
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  budget       Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+}
+
+model Expense {
+  id                Int      @id @default(autoincrement())
+  budgetCategoryId  Int
+  title             String
+  amount            Float
+  expenseDate       DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  budgetCategory    BudgetCategory @relation(fields: [budgetCategoryId], references: [id], onDelete: Cascade)
+}
+
+// --------------------
+// Tontine related additions
+// --------------------
+model TontinePayout {
+  id             Int      @id @default(autoincrement())
+  tontineMemberId Int
+  amount         Float
+  payoutDate     DateTime
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model TontineInvite {
+  id        Int      @id @default(autoincrement())
+  tontineId Int
+  email     String
+  inviteToken String @unique
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --------------------
+// Subscription
+// --------------------
+model Subscription {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  type        String
+  stripeId    String   @unique
+  stripeStatus String
+  stripePrice String?
+  quantity    Int?
+  trialEndsAt DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionItems SubscriptionItem[]
+  @@index([userId, stripeStatus])
+}
+
+model SubscriptionItem {
+  id             Int      @id @default(autoincrement())
+  subscriptionId Int
+  stripeId       String   @unique
+  stripeProduct  String
+  stripePrice    String
+  quantity       Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  @@index([subscriptionId, stripePrice])
 }
