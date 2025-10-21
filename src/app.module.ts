@@ -22,6 +22,11 @@ import { PaymentMethodsModule } from './payment-methods/payment-methods.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { TontinesModule } from './tontines/tontines.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
+import { SettingsModule } from './settings/settings.module';
+import { BudgetsModule } from './budgets/budgets.module';
+import { BudgetCategoriesModule } from './budget-categories/budget-categories.module';
+import { ExpensesModule } from './expenses/expenses.module';
+import { TontineInvitesModule } from './tontine-invites/tontine-invites.module';
 
 @Module({
   imports: [
@@ -45,7 +50,12 @@ import { SystemSettingsModule } from './system-settings/system-settings.module';
     PaymentMethodsModule,   // Payment methods
     SupportTicketsModule,   // Support tickets
     TontinesModule,         // Tontines
-    SystemSettingsModule,   // System-wide settings
+    SystemSettingsModule,
+    SettingsModule,
+    BudgetsModule,
+    BudgetCategoriesModule,
+    ExpensesModule,
+    TontineInvitesModule,   // System-wide settings
   ],
   controllers: [AppController],
   providers: [AppService],
