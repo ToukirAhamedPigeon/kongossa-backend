@@ -1,11 +1,19 @@
-import { IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsDateString, IsOptional, IsInt } from 'class-validator';
 
-export class UserExpenseStatsDto {
-  @IsOptional()
+export class CreateExpenseDto {
+  @IsInt()
+  budgetCategoryId: number;
+
+  @IsString()
+  title: string;
+
+  @IsNumber()
+  amount: number;
+
   @IsDateString()
-  startDate?: string;
+  expenseDate: string;
 
   @IsOptional()
-  @IsDateString()
-  endDate?: string;
+  @IsString()
+  description?: string;
 }

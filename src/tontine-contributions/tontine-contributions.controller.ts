@@ -31,4 +31,28 @@ export class TontineContributionsController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }
+
+  @Get('stats/tontine/:tontineId')
+  stats(@Param('tontineId', ParseIntPipe) tontineId: number) {
+    return this.service.stats(tontineId);
+  }
+
+  @Patch(':id/mark-paid')
+  markAsPaid(@Param('id', ParseIntPipe) id: number) {
+    return this.service.markAsPaid(id);
+  }
+
+  @Patch(':id/mark-late')
+  markAsLate(@Param('id', ParseIntPipe) id: number) {
+    return this.service.markAsLate(id);
+  }
+
+  @Get('tontine/:id')
+  findByTontine(
+      @Param('id', ParseIntPipe) tontineId: number,
+      @Query() query: any,
+    ) {
+      return this.service.findByTontine(tontineId, query);
+    }
+
 }

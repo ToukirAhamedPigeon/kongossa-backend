@@ -11,17 +11,11 @@ export class TontineContributionsService {
     return this.prisma.tontineContribution.create({ data: dto });
   }
 
-   async findAll(query: any) {
+  async findAll(query: any) {
     const where: any = {};
-
     if (query.tontineId) where.tontineId = Number(query.tontineId);
     if (query.userId) where.userId = Number(query.userId);
-    if (query.amount) where.amount = Number(query.amount);
-    if (query.currency) where.currency = query.currency;
     if (query.status) where.status = query.status;
-    if (query.roundNumber) where.roundNumber = Number(query.roundNumber);
-    if (query.transactionId) where.transactionId = query.transactionId;
-    if (query.paymentMethod) where.paymentMethod = query.paymentMethod;
 
     return this.prisma.tontineContribution.findMany({
       where,
@@ -39,15 +33,46 @@ export class TontineContributionsService {
   }
 
   async update(id: number, dto: UpdateTontineContributionDto) {
-    await this.findOne(id); // throws if not found
-    return this.prisma.tontineContribution.update({
-      where: { id },
-      data: dto,
-    });
+    await this.findOne(id);
+    return this.prisma.tontineContribution.update({ where: { id }, data: dto });
   }
 
   async remove(id: number) {
-    await this.findOne(id); // throws if not found
+    await this.findOne(id);
     return this.prisma.tontineContribution.delete({ where: { id } });
+  }
+
+  async markAsPaid(id: number) {
+    return this.update(id, { status: 'paid' });
+  }
+
+  async markAsLate(id: number) {
+    return this.update(id, { status: 'late' });
+  }
+
+  async stats(tontineId: number) {
+    const stats = await this.prisma.tontineContribution.aggregate({
+      where: { tontineId },
+      _sum: { amount: true },
+      _count: { id: true },
+    });
+    return stats;
+  }
+  
+   async findByTontine(tontineId: number, query: any) {
+    const tontine = await this.prisma.tontine.findUnique({
+      where: { id: tontineId },
+    });
+    if (!tontine) throw new NotFoundException('Tontine not found');
+
+    const where: any = { tontineId };
+    if (query.userId) where.userId = Number(query.userId);
+    if (query.status) where.status = query.status;
+
+    return this.prisma.tontineContribution.findMany({
+      where,
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

@@ -3,38 +3,37 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import 'reflect-metadata';
 
 async function bootstrap() {
-  // Create the NestJS application instance using AppModule
   const app = await NestFactory.create(AppModule);
 
-  // Enable global validation pipe for DTO validation
-  // This ensures that incoming request data is validated automatically
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,       // Strip properties not in the DTO
-      forbidNonWhitelisted: true, // Throw error if extra properties exist
-      transform: true,       // Automatically transform payloads to DTO instances
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
 
-  // Enable global HTTP exception filter to handle errors consistently
   app.useGlobalFilters(new HttpExceptionFilter());
-
-  // Enable global logging interceptor for request/response logging
   app.useGlobalInterceptors(new LoggingInterceptor());
-
-  // Use cookie parser middleware for reading cookies (required for refresh token)
   app.use(cookieParser());
+  app.enableCors({ origin: ['http://localhost:5173'], credentials: true });
 
-  // Enable CORS for cross-origin requests
-  app.enableCors({
-    origin: ['http://localhost:5173'], // Frontend URL(s)
-    credentials: true,                 // Allow cookies to be sent
-  });
+    // Swagger setup
+  const config = new DocumentBuilder()
+    .setTitle('Kongossa API')
+    .setDescription('API documentation for Kongossa backend')
+    .setVersion('1.0')
+    .addBearerAuth() // JWT auth
+    .build();
 
-  // Start the server on port 3000 (can be configured in .env)
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api-docs', app, document);
+
   await app.listen(3000);
   console.log(`Application is running on: ${await app.getUrl()}`);
 }

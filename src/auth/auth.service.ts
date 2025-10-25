@@ -467,4 +467,14 @@ export class AuthService {
 
       return { message: 'Verification email sent successfully' };
     }
+
+    async confirmPassword(userId: number, password: string) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new UnauthorizedException('User not found');
+
+      const valid = await bcrypt.compare(password, user.passwordHash || '');
+      if (!valid) throw new UnauthorizedException('Incorrect password');
+
+      return { message: 'Password confirmed successfully', confirmedAt: new Date() };
+    }
   }

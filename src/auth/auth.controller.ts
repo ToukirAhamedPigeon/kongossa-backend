@@ -20,6 +20,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { Request, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { OtpDto } from './dto/otp.dto';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -43,7 +47,7 @@ export class AuthController {
       }),
     }),
   )
-  async register(@Body() body: any, @UploadedFile() legalFormDocument: Express.Multer.File) {
+  async register(@Body() body: RegisterDto, @UploadedFile() legalFormDocument: Express.Multer.File) {
     const filePath = legalFormDocument
       ? `uploads/legal_docs/${legalFormDocument.filename}`
       : null;
@@ -58,12 +62,12 @@ export class AuthController {
   }
 
   @Post('send-otp')
-  async sendOtp(@Body() body: { email: string; purpose: string }) {
+  async sendOtp(@Body() body: OtpDto) {
     return this.otpService.sendOtp(body.email, body.purpose);
   }
 
   @Post('resend-otp')
-  async resendOtp(@Body() body: { email: string; purpose: string }) {
+  async resendOtp(@Body() body: OtpDto) {
     return this.otpService.sendOtp(body.email, body.purpose);
   }
 
@@ -149,5 +153,39 @@ export class AuthController {
   async resendEmailVerification(@Body('email') email: string) {
     const result = await this.authService.resendEmailVerification(email);
     return result;
+  }
+
+  // -------------------
+  // Confirm Password (New)
+  // -------------------
+  @Get('confirm-password')
+  @UseGuards(JwtAuthGuard)
+  async showConfirmPassword(@Req() req: any) {
+    return { message: 'Password confirmation required' };
+  }
+
+  @Post('confirm-password')
+  @UseGuards(JwtAuthGuard)
+  async confirmPassword(@Req() req: any, @Body() body: ConfirmPasswordDto) {
+    return this.authService.confirmPassword(req.user.id, body.password);
+  }
+
+  // -------------------
+  // Password Management
+  // -------------------
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string, @Body('domain') domain: string) {
+    return this.authService.forgotPassword(email, domain);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body('token') token: string, @Body('newPassword') newPassword: string) {
+    return this.authService.resetPassword(token, newPassword);
+  }
+
+  @Patch('set-password')
+  @UseGuards(JwtAuthGuard)
+  async setPassword(@Req() req: any, @Body() body: SetPasswordDto) {
+    return this.authService.setPassword(req.user.id, body.password);
   }
 }

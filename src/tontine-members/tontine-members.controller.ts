@@ -31,4 +31,17 @@ export class TontineMembersController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }
+
+  @Get(':id/stats')
+  stats(@Param('id', ParseIntPipe) id: number) {
+    return this.service.stats(id);
+  }
+
+  @Post(':id/contributions')
+  async addContribution(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { amount: number },
+  ) {
+    return this.service.addContribution(id, body.amount);
+  }
 }

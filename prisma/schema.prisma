@@ -71,6 +71,7 @@ model User {
   tontineCoAdminFor      Tontine[]             @relation("TontineCoAdmin")
   tontineMembers         TontineMember[]
   tontineContributions   TontineContribution[]
+  tontineInvites         TontineInvite[]
   qrPayments             QRPayment[]           @relation("QRRecipient")
   remittancesAsAgent     Remittance[]          @relation("RemittanceAgent")
   savedContacts          SavedContact[]        @relation("SavedContactAgent")
@@ -277,6 +278,7 @@ model Tontine {
   coAdmin       User?                 @relation("TontineCoAdmin", fields: [coAdminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   members       TontineMember[]
   contributions TontineContribution[]
+  invites       TontineInvite[]
 
   @@index([creatorId])
   @@index([coAdminId])
@@ -526,11 +528,15 @@ model TontinePayout {
 model TontineInvite {
   id          Int      @id @default(autoincrement())
   tontineId   Int
+  userId      Int?
   email       String
   inviteToken String   @unique
   status      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  tontine Tontine @relation(fields: [tontineId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
 }
 
 // --------------------

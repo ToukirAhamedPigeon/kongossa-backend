@@ -27,6 +27,12 @@ import { BudgetsModule } from './budgets/budgets.module';
 import { BudgetCategoriesModule } from './budget-categories/budget-categories.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { TontineInvitesModule } from './tontine-invites/tontine-invites.module';
+import { TontineContributionsModule } from './tontine-contributions/tontine-contributions.module';
+import { TontineMembersModule } from './tontine-members/tontine-members.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { PublicInviteModule } from './public-invite/public-invite.module';
+import { InvitationsModule } from './invitations/invitations.module';
+import { StripeModule } from './stripe/stripe.module';
 
 @Module({
   imports: [
@@ -55,7 +61,13 @@ import { TontineInvitesModule } from './tontine-invites/tontine-invites.module';
     BudgetsModule,
     BudgetCategoriesModule,
     ExpensesModule,
-    TontineInvitesModule,   // System-wide settings
+    TontineInvitesModule,
+    TontineContributionsModule,
+    TontineMembersModule,
+    DashboardModule,
+    PublicInviteModule,
+    InvitationsModule,
+    StripeModule,   // System-wide settings
   ],
   controllers: [AppController],
   providers: [AppService],
