@@ -51,4 +51,12 @@ export class TontineInvitesService {
     // TODO: trigger email/SMS notification here
     return { message: 'Invite resent successfully', invite };
   }
+
+  // 🔹 Remove a Tontine invite
+  async remove(id: number) {
+    const invite = await this.findOne(id);
+    await this.prisma.tontineInvite.delete({
+      where: { id: invite.id },
+    });
+  }
 }

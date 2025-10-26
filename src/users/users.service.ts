@@ -94,4 +94,9 @@ export class UsersService {
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
   }
+
+  getLegalFormDocumentUrl(documentPath: string): string {
+    // Example: if stored locally in /uploads/legal-forms/
+    return `https://yourdomain.com/uploads/legal-forms/${documentPath}`;
+  }
 }

@@ -241,7 +241,7 @@ export class AuthService {
         currency: user.currency,
       };
 
-        return { accessToken: newAccessToken, refreshTokenExpires: stored.expiresAt, userInfo };
+        return { accessToken: newAccessToken, refreshTokenExpires: stored.expiresAt, user:userInfo };
       }
     }
     throw new UnauthorizedException('Invalid or expired refresh token');

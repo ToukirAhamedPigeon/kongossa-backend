@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   ParseIntPipe,
@@ -50,4 +51,11 @@ export class TontineInvitesController {
   async resend(@Param('id', ParseIntPipe) id: number) {
     return this.service.resend(id);
   }
+ // 🔹 Delete a Tontine invite
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    await this.service.remove(id);
+  }
+
 }
