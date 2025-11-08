@@ -1,56 +1,29 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
-/**
- * DTO for creating a new user
- * This defines the validation rules for incoming requests
- */
 export class CreateUserDto {
-  @IsNotEmpty()
-  @IsString()
-  fullName: string;
+  @IsNotEmpty() @IsString() fullName: string;
+  @IsNotEmpty() @IsEmail() email: string;
+  @IsNotEmpty() @IsString() phoneNumber: string;
+  @IsNotEmpty() @IsString() password: string;
 
-  @IsNotEmpty()
-  @IsEmail()
-  email: string;
+  @IsOptional() @IsString() role: string = 'user';
+  @IsOptional() @IsString() accountType: string = 'personal';
 
-  @IsNotEmpty()
-  @IsString()
-  phoneNumber: string;
+  // Business fields
+  @IsOptional() @IsString() companyName?: string;
+  @IsOptional() @IsString() legalForm?: string;
+  @IsOptional() @IsString() managerName?: string;
+  @IsOptional() @IsString() companyPhone?: string;
+  @IsOptional() @IsString() companyAddress?: string;
+  @IsOptional() @IsString() businessDescription?: string;
 
-  @IsNotEmpty()
-  @MinLength(6)
-  password: string;
+  // File path of uploaded document
+  @IsOptional() @IsString() legalFormDocument?: string | null;
 
-  @IsOptional()
-  @IsString()
-  role: string = 'user';
-
-  @IsOptional()
-  @IsString()
-  accountType: string = 'personal';
-
-  @IsOptional()
-  @IsString()
-  country: string = 'France';
-
-  @IsOptional()
-  @IsString()
-  profileImage: string = '';
-
-  @IsOptional()
-  @IsString()
-  referralCode: string = '';
-
-  // ⚡ Add missing required fields
-  @IsNotEmpty()
-  @IsString()
-  address: string;
-
-  @IsNotEmpty()
-  dateOfBirth: Date;
-
-  @IsNotEmpty()
-  @IsString()
-  qrCode: string;
+  @IsOptional() @IsString() country?: string;
+  @IsOptional() @IsString() profileImage?: string;
+  @IsOptional() @IsString() referralCode?: string;
+  @IsOptional() @IsString() address?: string;
+  @IsOptional() dateOfBirth?: Date;
+  @IsOptional() @IsString() qrCode?: string;
 }
-

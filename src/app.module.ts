@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { RolesModule } from './roles/roles.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppConfigModule } from './config/config.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -46,6 +47,7 @@ import { StripeModule } from './stripe/stripe.module';
     UsersModule,            // User management
     TransactionsModule,     // Transactions management
     RolesModule,            // Role & permissions management
+    PermissionsModule,       // Permission management
     OtpModule,              // OTP management
     PasswordResetsModule,   // Password resets
     RefreshTokensModule,    // Refresh tokens

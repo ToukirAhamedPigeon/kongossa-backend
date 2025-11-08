@@ -23,16 +23,24 @@ export class TontinesService {
     const where: any = {};
     if (filters.name) where.name = { contains: filters.name, mode: 'insensitive' };
     if (filters.status) where.status = filters.status;
-    if (filters.creatorId) where.creatorId = Number(filters.creatorId);
-    if (filters.coAdminId) where.coAdminId = Number(filters.coAdminId);
-    if (filters.inviteCode) where.inviteCode = filters.inviteCode;
 
-    return this.prisma.tontine.findMany({
-      where,
-      include: { creator: true, coAdmin: true, members: true, contributions: true },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.tontine.findMany({
+        where,
+        include: { creator: true, coAdmin: true, members: true, contributions: true },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.tontine.count({ where }),
+    ]);
+
+    return {
+      data: items,
+      current_page: page,
+      last_page: Math.ceil(total / limit),
+      per_page: limit,
+      total,
+    };
   }
 
   async findOne(id: number) {

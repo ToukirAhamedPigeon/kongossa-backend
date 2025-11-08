@@ -1,5 +1,6 @@
 // src/tontines/tontines.controller.ts
-import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query,UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from './../auth/guards/jwt-auth.guard';
 import { TontinesService } from './tontines.service';
 import { CreateTontineDto } from './dto/create-tontine.dto';
 import { UpdateTontineDto } from './dto/update-tontine.dto';
@@ -7,8 +8,10 @@ import { AddMembersDto } from './dto/add-member.dto';
 import { CreateTontineInviteDto } from './dto/create-invite.dto';
 import { TontineStatsDto } from './dto/tontine-stats.dto';
 import { TontineDashboardDto } from './dto/tontine-dashboard.dto';
+import { TontineTypeOptions } from './tontine-type.enum';
 
 @Controller('tontines')
+@UseGuards(JwtAuthGuard)
 export class TontinesController {
   constructor(private readonly tontinesService: TontinesService) {}
 
@@ -18,6 +21,13 @@ export class TontinesController {
   @Post()
   create(@Body() createTontineDto: CreateTontineDto) {
     return this.tontinesService.create(createTontineDto);
+  }
+
+  @Get('types')
+  getTontineTypes() {
+    return {
+      tontineTypes: TontineTypeOptions,
+    };
   }
 
   @Get()

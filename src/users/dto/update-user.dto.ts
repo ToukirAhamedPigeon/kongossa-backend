@@ -1,10 +1,59 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateUserDto } from './create-user.dto';
+import { IsOptional, IsString, IsEmail } from 'class-validator';
 
-/**
- * UpdateUserDto allows partial update of User fields.
- * Password is optional but will be hashed in UsersService.
- */
-export class UpdateUserDto extends PartialType(CreateUserDto) {
-  password?: string; // Only for incoming request
+export class UpdateUserDto {
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  userType?: string; // personal | business_merchant
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @IsOptional()
+  @IsString()
+  companyName?: string;
+
+  @IsOptional()
+  @IsString()
+  legalForm?: string;
+
+  @IsOptional()
+  @IsString()
+  managerName?: string;
+
+  @IsOptional()
+  @IsString()
+  companyPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  companyAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  businessDescription?: string;
+
+  @IsOptional()
+  @IsString()
+  legalFormDocument?: string;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
 }

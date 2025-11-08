@@ -148,6 +148,8 @@ model UserRole {
   user   User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   role   Role @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@unique([userId, roleId], name: "userId_roleId") 
+
   @@map("UserRole")
 }
 
