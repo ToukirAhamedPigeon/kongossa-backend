@@ -13,6 +13,7 @@ import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { CreateBudgetCategoryDto } from './dto/create-budget-category.dto';
+import { plainToInstance } from 'class-transformer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('budgets')
@@ -28,7 +29,13 @@ export class BudgetsController {
 
   // Create budget
   @Post()
-  async createBudget(@Body() dto: CreateBudgetDto) {
+  async createBudget(@Body() body: any) {
+    const dto = plainToInstance(CreateBudgetDto, {
+      name: body.name,
+      period: body.period,
+      totalAmount: body.total_amount, // transform here
+    });
+
     return this.budgetsService.createBudget(dto);
   }
 
