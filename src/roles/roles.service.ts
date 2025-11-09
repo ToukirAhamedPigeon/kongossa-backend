@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { UpdateRoleDto } from './dto/update-role.dto';
 
 @Injectable()
 export class RolesService {
@@ -10,10 +11,37 @@ export class RolesService {
    * Create a new role
    * @param data Role data { name, description }
    */
-  async createRole(data: Prisma.RoleCreateInput) {
-    return this.prisma.role.create({
-      data,
-    });
+  async createRole(data: { name: string; description?: string; permissions?: number[] }) {
+    try {
+      const { name, description, permissions = [] } = data;
+
+      // Create the role and connect permissions
+      const role = await this.prisma.role.create({
+        data: {
+          name,
+          description,
+          rolePermissions: {
+            create: permissions.map((permissionId) => ({
+              permission: {
+                connect: { id: permissionId },
+              },
+            })),
+          },
+        },
+        include: {
+          rolePermissions: {
+            include: {
+              permission: true,
+            },
+          },
+        },
+      });
+
+      return role;
+    } catch (error) {
+      console.error('Error creating role:', error);
+      throw error;
+    }
   }
 
   /**
@@ -56,16 +84,52 @@ export class RolesService {
   /**
    * Update a role by ID
    * @param id Role ID
-   * @param data Role data to update
+   * @param data Role data to update { name?, description?, permissions? }
    */
-  async updateRole(id: number, data: Prisma.RoleUpdateInput) {
-    // Check if role exists
-    await this.getRoleById(id);
+  async updateRole(id: number, data: UpdateRoleDto) {
+    try {
+      const { name, description, permissions } = data;
 
-    return this.prisma.role.update({
-      where: { id },
-      data,
-    });
+      // Ensure role exists
+      const role = await this.prisma.role.findUnique({ where: { id } });
+      if (!role) throw new NotFoundException(`Role with ID ${id} not found`);
+
+      // Step 1: Update name/description
+      const updatedRole = await this.prisma.role.update({
+        where: { id },
+        data: { name, description },
+      });
+
+      // Step 2: If permissions array is provided, reset and reattach
+      if (permissions && Array.isArray(permissions)) {
+        // Remove all old rolePermissions
+        await this.prisma.rolePermission.deleteMany({
+          where: { roleId: id },
+        });
+
+        // Add new ones
+        await this.prisma.rolePermission.createMany({
+          data: permissions.map((pid) => ({
+            roleId: id,
+            permissionId: pid,
+          })),
+        });
+      }
+
+      // Step 3: Return updated role with permissions
+      return this.prisma.role.findUnique({
+        where: { id },
+        include: {
+          rolePermissions: {
+            include: { permission: true },
+          },
+          userRoles: true,
+        },
+      });
+    } catch (error) {
+      console.error('Error updating role:', error);
+      throw error;
+    }
   }
 
   /**
@@ -73,13 +137,27 @@ export class RolesService {
    * @param id Role ID
    */
   async deleteRole(id: number) {
-    // Check if role exists
-    await this.getRoleById(id);
+  // Ensure the role exists first
+  await this.getRoleById(id);
 
-    return this.prisma.role.delete({
+  // Delete all relations atomically
+  await this.prisma.$transaction([
+    // Remove RolePermission records
+    this.prisma.rolePermission.deleteMany({
+      where: { roleId: id },
+    }),
+    // Remove UserRole records
+    this.prisma.userRole.deleteMany({
+      where: { roleId: id },
+    }),
+    // Finally remove the Role itself
+    this.prisma.role.delete({
       where: { id },
-    });
-  }
+    }),
+  ]);
+
+  return { message: `Role with ID ${id} deleted successfully` };
+}
 
   /**
    * Assign role to a user

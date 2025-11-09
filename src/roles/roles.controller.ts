@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { Prisma } from '@prisma/client';
+import { UpdateRoleDto } from './dto/update-role.dto';
 
 @Controller('roles')
 export class RolesController {
@@ -11,8 +12,8 @@ export class RolesController {
    * POST /roles
    */
   @Post()
-  async createRole(@Body() data: Prisma.RoleCreateInput) {
-    return this.rolesService.createRole(data);
+  async createRole(@Body() body: { name: string; description?: string; permissions?: number[] }) {
+    return this.rolesService.createRole(body);
   }
 
   /**
@@ -37,10 +38,10 @@ export class RolesController {
    * Update a role
    * PATCH /roles/:id
    */
-  @Patch(':id')
+ @Patch(':id')
   async updateRole(
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: Prisma.RoleUpdateInput,
+    @Body() data: UpdateRoleDto,
   ) {
     return this.rolesService.updateRole(id, data);
   }
