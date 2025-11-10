@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Req,
   Post,
   Put,
   Delete,
@@ -25,9 +26,18 @@ export class ExpensesController {
   // -----------------------------
 
   @Get()
-  async index() {
-    return this.service.getAllExpenses();
-  }
+async index(
+  @Req() req: any,
+  @Query('search') search?: string,
+  @Query('category') category?: string,
+  @Query('dateFrom') dateFrom?: string,
+  @Query('dateTo') dateTo?: string,
+) {
+  const userId = req.user.id;
+  return {
+    expenses: await this.service.getUserExpenses(userId, { search, category, dateFrom, dateTo }),
+  };
+}
 
   @Get('create')
   async create() {
@@ -73,8 +83,16 @@ export class ExpensesController {
     return this.service.getUserExpenses(Number(userId));
   }
 
-  @Get('stats/user')
-  async getUserExpenseStats(@Query() dto: UserExpenseStatsDto) {
-    return this.service.getUserExpenseStats(dto.startDate, dto.endDate);
+  // -------------------------
+  // Get expense statistics
+  // -------------------------
+  @Get('stats')
+  async stats(
+    @Req() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const userId = req.user.id;
+    return this.service.getUserExpenseStats(userId, startDate, endDate);
   }
 }
