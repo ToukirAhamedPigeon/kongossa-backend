@@ -8,9 +8,73 @@ import { CreateBudgetCategoryDto } from './dto/create-budget-category.dto';
 export class BudgetsService {
   constructor(private prisma: PrismaService) {}
 
-  async getBudgets() {
-    return this.prisma.budget.findMany({ include: { categories: true } });
+  async getBudgets(params?: { search?: string; period?: string; page?: number; limit?: number }) {
+  const { search, period, page = 1, limit = 10 } = params || {};
+
+  const where: any = {};
+  // 🔍 Search filter
+  if (search) {
+    where.name = { contains: search, mode: 'insensitive' };
   }
+
+  // ⏱ Period filter
+  if (period) {
+    where.period = period;
+  }
+
+  // 📄 Pagination
+  const skip = (page - 1) * limit;
+
+  // 🧮 Fetch budgets with filters + pagination
+  const [budgets, total] = await Promise.all([
+    this.prisma.budget.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        categories: {
+          include: { expenses: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    this.prisma.budget.count({ where }),
+  ]);
+
+  // 🧾 Calculate extra fields
+  const result = budgets.map((budget) => {
+    const total_spent = budget.categories.reduce((sum, c) => {
+      const spent = c.expenses?.reduce((s, e) => s + (e.amount ?? 0), 0) ?? 0;
+      return sum + spent;
+    }, 0);
+
+    const usage_percentage = budget.totalAmount
+      ? (total_spent / budget.totalAmount) * 100
+      : 0;
+
+    const is_over_budget = total_spent > budget.totalAmount;
+
+    return {
+      ...budget,
+      total_spent,
+      usage_percentage,
+      is_over_budget,
+      categories_count: budget.categories.length,
+    };
+  });
+
+  // 🧮 Pagination metadata for frontend
+  const last_page = Math.ceil(total / limit);
+
+  return {
+    data: result,
+    total,
+    current_page: page,
+    last_page,
+    per_page: limit,
+  };
+}
+
 
   async createBudget(dto: CreateBudgetDto) {
     return this.prisma.budget.create({
@@ -26,11 +90,32 @@ export class BudgetsService {
   async getBudget(id: number) {
     const budget = await this.prisma.budget.findUnique({
       where: { id },
-      include: { categories: true },
+      include: {
+        categories: {
+          include: {
+            expenses: true,
+          },
+        },
+      },
     });
+
     if (!budget) throw new NotFoundException('Budget not found');
-    return budget;
-  }
+
+    // Flatten and attach category details to each expense
+    const allExpenses = budget.categories.flatMap((category) =>
+      (category.expenses || []).map((expense) => ({
+        ...expense,
+        budgetCategoryName: category.name,       // ✅ add category name
+        budgetCategoryColor: category.color,     // ✅ optional
+        budgetCategoryLimit: category.limitAmount, // ✅ optional
+      }))
+  );
+
+  return {
+    ...budget,
+    expenses: allExpenses,
+  };
+}
 
   async updateBudget(id: number, dto: UpdateBudgetDto) {
     await this.getBudget(id);

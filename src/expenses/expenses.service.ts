@@ -20,7 +20,20 @@ export class ExpensesService {
   }
 
   async createExpense(dto: CreateExpenseDto) {
-    return this.prisma.expense.create({ data: dto });
+    try {
+      console.log('Creating expense with DTO:', dto);
+      const result = await this.prisma.expense.create({ data: {
+        budgetCategoryId: dto.budgetCategoryId,
+        title: dto.title,
+        amount: dto.amount,
+        expenseDate: new Date(dto.expenseDate),
+      }});
+      console.log('Expense created:', result);
+      return result;
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      throw new Error(`Failed to create expense: ${error.message}`);
+    }
   }
 
   async getExpenseById(id: number) {
@@ -33,12 +46,18 @@ export class ExpensesService {
   }
 
   async updateExpense(id: number, dto: UpdateExpenseDto) {
-    await this.getExpenseById(id); // check existence
+    await this.getExpenseById(id);
+
     return this.prisma.expense.update({
       where: { id },
-      data: dto,
+      data: {
+        budgetCategoryId: dto.budgetCategoryId,
+        title: dto.title,
+        amount: dto.amount,
+        expenseDate: dto.expenseDate ? new Date(dto.expenseDate) : undefined
+      },
     });
-  }
+}
 
   async deleteExpense(id: number) {
     await this.getExpenseById(id); // check existence

@@ -23,8 +23,13 @@ export class BudgetsController {
 
   // List all budgets
   @Get()
-  async getBudgets() {
-    return this.budgetsService.getBudgets();
+  async getBudgets(
+    @Query('search') search?: string,
+    @Query('period') period?: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.budgetsService.getBudgets({ search, period, page, limit });
   }
 
   // Create budget

@@ -37,7 +37,12 @@ export class ExpensesController {
 
   @Post()
   async store(@Body() dto: CreateExpenseDto) {
-    return this.service.createExpense(dto);
+    try {
+      return this.service.createExpense(dto);
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      throw new Error('Failed to create expense');
+    }
   }
 
   @Get(':id')

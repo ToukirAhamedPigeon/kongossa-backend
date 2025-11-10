@@ -482,6 +482,7 @@ model Budget {
   id          Int              @id @default(autoincrement())
   userId      Int
   name        String
+  description String?
   period      String           @default("monthly")
   totalAmount Float
   createdAt   DateTime         @default(now())
