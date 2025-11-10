@@ -14,9 +14,33 @@ export class ExpensesService {
     });
   }
 
-  async getExpenseMeta() {
-    // Example: return budget categories for current user
-    return this.prisma.budgetCategory.findMany();
+   async getExpenseMeta() {
+    // Return all budget categories along with their parent budget name
+    const categories = await this.prisma.budgetCategory.findMany({
+      include: {
+        budget: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    // Optionally format response for frontend
+    return {
+      budgetCategories: categories.map((cat) => ({
+        id: cat.id,
+        name: cat.name + ' (' + cat.budget?.name + ')',
+        color: cat.color,
+        limitAmount: cat.limitAmount,
+        budgetId: cat.budgetId,
+        budgetName: cat.budget?.name || null,
+      })),
+    };
   }
 
   async createExpense(dto: CreateExpenseDto) {

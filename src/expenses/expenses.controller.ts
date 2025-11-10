@@ -42,7 +42,7 @@ async index(
   @Get('create')
   async create() {
     // Could return meta info like categories for the user
-    return this.service.getExpenseMeta();
+    return await this.service.getExpenseMeta();
   }
 
   @Post()

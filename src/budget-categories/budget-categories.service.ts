@@ -8,6 +8,20 @@ import { CreateExpenseDto } from './dto/create-expense.dto';
 export class BudgetCategoriesService {
   constructor(private prisma: PrismaService) {}
 
+  async getUserBudgets(userId: number) {
+    return this.prisma.budget.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+        totalAmount: true,
+        period: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getAllCategories() {
     return this.prisma.budgetCategory.findMany();
   }
@@ -15,6 +29,7 @@ export class BudgetCategoriesService {
   async getCategoryById(id: number) {
     const category = await this.prisma.budgetCategory.findUnique({
       where: { id },
+      include: { budget: true },
     });
     if (!category) throw new NotFoundException('Category not found');
     return category;
@@ -33,7 +48,7 @@ export class BudgetCategoriesService {
   }
 
   async updateCategory(id: number, dto: CreateCategoryDto) {
-    await this.getCategoryById(id); // ensure it exists
+    await this.getCategoryById(id);
     return this.prisma.budgetCategory.update({
       where: { id },
       data: {

@@ -4,6 +4,7 @@ import {
   Post,
   Get,
   Put,
+  Req,
   Delete,
   Param,
   Body,
@@ -31,10 +32,11 @@ export class BudgetCategoriesController {
   }
 
   // GET /budget-categories/create
-  @Get('create')
-  async create() {
-    // Could return default values, enums, or necessary data for creating category
-    return { message: 'Provide name, description, color, limitAmount' };
+   @Get('create')
+  async create(@Req() req: any) {
+    const userId = req.userId;
+    const budgets = await this.service.getUserBudgets(userId);
+    return { data: { budgets } };
   }
 
   // GET /budget-categories/:id
