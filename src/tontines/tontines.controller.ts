@@ -1,5 +1,5 @@
 // src/tontines/tontines.controller.ts
-import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query,UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query,UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from './../auth/guards/jwt-auth.guard';
 import { TontinesService } from './tontines.service';
 import { CreateTontineDto } from './dto/create-tontine.dto';
@@ -31,8 +31,14 @@ export class TontinesController {
   }
 
   @Get()
-  findAll(@Query('page') page?: string, @Query('limit') limit?: string, @Query() filters?: any) {
-    return this.tontinesService.findAll(filters, Number(page) || 1, Number(limit) || 20);
+  findAll(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query() filters?: any
+  ) {
+    const user = req.user;
+    return this.tontinesService.findAll(filters, Number(page) || 1, Number(limit) || 20, user.id);
   }
 
   @Get('create')

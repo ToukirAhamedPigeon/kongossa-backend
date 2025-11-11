@@ -19,17 +19,33 @@ export class TontinesService {
     return this.prisma.tontine.create({ data: createTontineDto });
   }
 
-  async findAll(filters: any = {}, page = 1, limit = 20) {
+  async findAll(filters: any = {}, page = 1, limit = 20, userId?: number) {
     const where: any = {};
-    if (filters.name) where.name = { contains: filters.name, mode: 'insensitive' };
+
+    // 🔍 Add search conditions only if needed
+    if (filters.search) {
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
     if (filters.status) where.status = filters.status;
+    if (filters.type && filters.type!=='all') where.type = filters.type;
+    if (userId) where.creatorId = userId;
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.tontine.findMany({
         where,
-        include: { creator: true, coAdmin: true, members: true, contributions: true },
+        include: {
+          creator: true,
+          coAdmin: true,
+          members: { include: { user: true } },
+          contributions: true,
+        },
         skip: (page - 1) * limit,
         take: limit,
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.tontine.count({ where }),
     ]);
