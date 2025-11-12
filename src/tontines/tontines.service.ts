@@ -15,8 +15,35 @@ export class TontinesService {
   // -------------------
   // CRUD
   // -------------------
-  async create(createTontineDto: CreateTontineDto) {
-    return this.prisma.tontine.create({ data: createTontineDto });
+   async create(dto: CreateTontineDto, userId: number) {
+    try {
+      // console.log(userId);
+      const tontine = await this.prisma.tontine.create({
+        data: {
+          name: dto.name,
+          type: dto.type,
+          description: dto.description || "",
+          contributionAmount: dto.contributionAmount,
+          contributionFrequency: dto.contributionFrequency,
+          durationMonths: dto.durationMonths || 12,
+          startDate: new Date(),
+          status: "forming",
+          currency: "USD",
+          totalPot: 0,
+          currentRound: 1,
+          payoutOrder: [],
+          paymentMethods: [],
+          notificationSettings: {},
+          creator: {
+            connect: { id: userId }, // fixed relation
+          },
+        },
+      });
+      return tontine;
+    } catch (err) {
+      console.error("Error creating tontine:", err);
+      throw new BadRequestException("Failed to create tontine");
+    }
   }
 
   async findAll(filters: any = {}, page = 1, limit = 20, userId?: number) {
@@ -30,7 +57,7 @@ export class TontinesService {
       ];
     }
 
-    if (filters.status) where.status = filters.status;
+    if (filters.status && filters.type!=='all') where.status = filters.status;
     if (filters.type && filters.type!=='all') where.type = filters.type;
     if (userId) where.creatorId = userId;
 
@@ -38,9 +65,9 @@ export class TontinesService {
       this.prisma.tontine.findMany({
         where,
         include: {
-          creator: true,
+          creator: { select: { id: true, fullName: true, role: true } },
           coAdmin: true,
-          members: { include: { user: true } },
+          members: { include: { user: { select: { id: true, fullName: true, role: true } } } },
           contributions: true,
         },
         skip: (page - 1) * limit,
@@ -69,8 +96,30 @@ export class TontinesService {
   }
 
   async update(id: number, updateTontineDto: UpdateTontineDto) {
-    return this.prisma.tontine.update({ where: { id }, data: updateTontineDto });
+    const {
+      tontine_type_id,
+      amount,
+      cycle,
+      duration_months,
+      type,
+      contributionAmount,
+      contributionFrequency,
+      durationMonths,
+      ...rest
+    } = updateTontineDto as any;
+
+    return this.prisma.tontine.update({
+      where: { id },
+      data: {
+        ...rest,
+        type: type || tontine_type_id,
+        contributionAmount: contributionAmount ?? amount,
+        contributionFrequency: contributionFrequency ?? cycle,
+        durationMonths: durationMonths ?? duration_months,
+      },
+    });
   }
+
 
   async remove(id: number) {
     return this.prisma.tontine.delete({ where: { id } });

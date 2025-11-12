@@ -257,6 +257,7 @@ model Tontine {
   description           String?
   type                  String
   contributionAmount    Float
+  durationMonths        Int?
   currency              String    @default("USD")
   contributionFrequency String
   payoutInterval        String?

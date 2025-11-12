@@ -39,4 +39,8 @@ export class CreateTontineDto {
   @IsArray()
   @IsOptional()
   paymentMethods?: string[];
+
+  @IsNumber()
+  @IsOptional()
+  durationMonths?: number;
 }

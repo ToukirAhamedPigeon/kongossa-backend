@@ -19,8 +19,9 @@ export class TontinesController {
   // CRUD
   // -------------------
   @Post()
-  create(@Body() createTontineDto: CreateTontineDto) {
-    return this.tontinesService.create(createTontineDto);
+  create(@Body() dto: CreateTontineDto, @Req() req: any) {
+    // console.log(req.body);
+    return this.tontinesService.create(dto, req.body.creatorId); 
   }
 
   @Get('types')
