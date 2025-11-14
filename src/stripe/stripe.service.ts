@@ -47,22 +47,20 @@ export class StripeService {
 
     // Create contribution
     const contribution = await this.prisma.tontineContribution.create({
-      data: {
-        tontineId: tontine.id,
-        userId: Number(userId),
-        amount: (session.amount_total ?? 0) / 100,
-        currency: session.currency ?? 'usd',
-        status: 'paid',
-        roundNumber: tontine.currentRound,
-        contributionDate: new Date(),
-      },
-    });
+        data: {
+          tontineMemberId: member.id,
+          userId: Number(userId),
+          amount: (session.amount_total ?? 0) / 100,
+          status: 'paid',
+          contributionDate: new Date(),
+        },
+      })
 
     // Optionally update tontine total pot
     await this.prisma.tontine.update({
       where: { id: tontine.id },
       data: {
-        totalPot: tontine.totalPot + contribution.amount,
+        totalPot: Number(tontine.totalPot) + Number(contribution.amount),
       },
     });
 

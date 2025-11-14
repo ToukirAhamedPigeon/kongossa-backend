@@ -47,10 +47,11 @@ export class TontineMembersService {
     const member = await this.findOne(memberId);
     return this.prisma.tontineContribution.create({
       data: {
-        tontineId: member.tontineId,
+        tontineMemberId: member.id,
         userId: member.userId,
         amount,
-        roundNumber: 1
+        status: 'pending', // required
+        // roundNumber: 1, // only if you add it to the schema
       },
     });
   }

@@ -1,4 +1,10 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateTontineDto } from './create-tontine.dto';
 
-export class UpdateTontineDto extends PartialType(CreateTontineDto) {}
+export class UpdateTontineDto {
+  name?: string;
+  type?: string;
+  contributionAmount?: number;
+  contributionFrequency?: string; // this maps to frequency in schema
+  durationMonths?: number;
+  maxMembers?: number;
+  status?: string;
+}

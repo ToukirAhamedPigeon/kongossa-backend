@@ -252,78 +252,66 @@ model SupportTicket {
 }
 
 model Tontine {
-  id                    Int       @id @default(autoincrement())
-  name                  String
-  description           String?
-  type                  String
-  contributionAmount    Float
-  durationMonths        Int?
-  currency              String    @default("USD")
-  contributionFrequency String
-  payoutInterval        String?
-  startDate             DateTime?
-  nextPayoutDate        DateTime?
-  status                String    @default("forming")
-  payoutOrder           Int[]     @default([]) // array of user ids, order of payouts
-  currentRound          Int       @default(1)
-  totalPot              Float     @default(0)
-  maxMembers            Int?
-  inviteCode            String?   @unique
-  paymentMethods        String[]  @default([]) // accepted payment methods (strings)
-  notificationSettings  Json? // store object: { payment_reminders: true, ... }
-  creatorId             Int
-  coAdminId             Int?
+  id               Int       @id @default(autoincrement())
+  createdBy        Int       @map("created_by")
+  name             String
+  type             String
+  contributionAmount Decimal  @db.Decimal(10,2) @map("contribution_amount")
+  frequency        String     // renamed from contributionFrequency
+  durationMonths   Int?       @map("duration_months")
+  status           String
+  maxMembers       Int?       @map("max_members")
+  stripePriceId    String?    @map("stripe_price_id")
+  totalPot         Decimal    @default(0) @db.Decimal(10,2)
+  startDate          DateTime?  @map("start_date")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  creator          User @relation("TontineCreator", fields: [createdBy], references: [id])
 
-  creator       User                  @relation("TontineCreator", fields: [creatorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  coAdmin       User?                 @relation("TontineCoAdmin", fields: [coAdminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  members       TontineMember[]
-  contributions TontineContribution[]
-  invites       TontineInvite[]
-
-  @@index([creatorId])
-  @@index([coAdminId])
-  @@map("Tontine")
+  coAdmins          User[] @relation("TontineCoAdmin")
+  members          TontineMember[]
+  invites          TontineInvite[]
+  payouts          TontinePayout[]
+  @@map("tontines")
 }
 
 model TontineMember {
-  id        Int      @id @default(autoincrement())
-  tontineId Int
-  userId    Int
-  joinedAt  DateTime @default(now())
-  role      String? // e.g., member, admin
-  isActive  Boolean  @default(true)
+  id              Int      @id @default(autoincrement())
+  tontineId       Int      @map("tontine_id")
+  userId          Int      @map("user_id")
+  priorityOrder   Int?     @map("priority_order")
+  isAdmin         Boolean  @default(false) @map("is_admin")
 
-  tontine Tontine @relation(fields: [tontineId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  joinedAt        DateTime @default(now()) @map("joined_at")
 
-  @@unique([tontineId, userId], name: "tontine_member_unique")
-  @@index([tontineId])
-  @@index([userId])
-  @@map("TontineMember")
+  tontine         Tontine  @relation(fields: [tontineId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
+  contributions   TontineContribution[]
+  payouts         TontinePayout[]
+
+  @@unique([tontineId, userId])
+  @@map("tontine_members")
 }
 
+
 model TontineContribution {
-  id               Int       @id @default(autoincrement())
-  tontineId        Int
-  userId           Int
-  amount           Float
-  currency         String    @default("USD")
-  contributionDate DateTime?
-  roundNumber      Int
-  paymentMethod    String?
-  status           String    @default("pending")
-  transactionId    String?
-  createdAt        DateTime  @default(now())
+  id                 Int       @id @default(autoincrement())
+  tontineMemberId    Int       @map("tontine_member_id")
+  amount             Decimal    @db.Decimal(10,2)
+  roundNumber     Int       @default(1)
+  contributionDate   DateTime?  @map("contribution_date")
+  status             String
 
-  tontine Tontine @relation(fields: [tontineId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
-  @@index([tontineId])
-  @@index([userId])
-  @@map("TontineContribution")
+  userId            Int?
+  user              User? @relation(fields: [userId], references: [id])
+
+  tontineMember      TontineMember @relation(fields: [tontineMemberId], references: [id], onDelete: Cascade)
+
+  @@map("tontine_contributions")
 }
 
 model QRPayment {
@@ -520,27 +508,36 @@ model Expense {
 // Tontine related additions
 // --------------------
 model TontinePayout {
-  id              Int      @id @default(autoincrement())
-  tontineMemberId Int
-  amount          Float
-  payoutDate      DateTime
+  id              Int       @id @default(autoincrement())
+  tontineMemberId Int       @map("tontine_member_id")
+  amount          Decimal    @db.Decimal(10,2)
+  payoutDate      DateTime   @map("payout_date")
   status          String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  tontineId Int @map("tontine_id")
+  tontine   Tontine @relation(fields: [tontineId], references: [id])
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  tontineMember   TontineMember @relation(fields: [tontineMemberId], references: [id])
+
+  @@map("tontine_payouts")
 }
 
 model TontineInvite {
   id          Int      @id @default(autoincrement())
-  tontineId   Int
-  userId      Int?
+  tontineId   Int      @map("tontine_id")
+  userId      Int?     @map("user_id")
   email       String
-  inviteToken String   @unique
-  status      String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  inviteToken String   @unique @map("invite_token")
+  status      String   @default("pending")
 
-  tontine Tontine @relation(fields: [tontineId], references: [id])
-  user    User?   @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tontine     Tontine @relation(fields: [tontineId], references: [id])
+  user        User?   @relation(fields: [userId], references: [id])
+
+  @@map("tontine_invites")
 }
 
 // --------------------

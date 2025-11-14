@@ -26,8 +26,8 @@ export class InvitationsService {
         id: invite.tontine.id,
         name: invite.tontine.name,
         type: invite.tontine.type,
-        contributionAmount: invite.tontine.contributionAmount,
-        frequency: invite.tontine.contributionFrequency,
+        contributionAmount: invite.tontine.contributionAmount.toNumber(), // FIXED
+        frequency: invite.tontine.frequency, // FIXED (old name removed)
       },
     }));
   }

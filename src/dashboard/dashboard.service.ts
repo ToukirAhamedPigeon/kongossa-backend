@@ -20,13 +20,21 @@ export class DashboardService {
       },
     });
 
-    const totalAllocated = budgets.reduce((sum, b) => sum + b.totalAmount, 0);
+    const totalAllocated = budgets.reduce(
+      (sum, b) => sum + Number(b.totalAmount),
+      0
+    );
+
     const totalSpent = budgets
       .flatMap((b) => b.categories.flatMap((c) => c.expenses))
-      .reduce((sum, e) => sum + e.amount, 0);
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+
     const overBudgetCount = budgets.filter((b) => {
-      const spent = b.categories.flatMap((c) => c.expenses).reduce((s, e) => s + e.amount, 0);
-      return spent > b.totalAmount;
+      const spent = b.categories
+        .flatMap((c) => c.expenses)
+        .reduce((s, e) => s + Number(e.amount), 0);
+
+      return spent > Number(b.totalAmount);
     }).length;
 
     // Tontine stats
@@ -41,14 +49,19 @@ export class DashboardService {
       where: { userId },
     });
 
-    const totalContributed = contributions.reduce((sum, c) => sum + c.amount, 0);
+    const totalContributed = contributions.reduce(
+      (sum, c) => sum + Number(c.amount),
+      0
+    );
 
-    // We’ll approximate payouts by grouping contributions by user
     const payouts = await this.prisma.tontinePayout.findMany({
       where: { tontineMemberId: { in: tontineMemberships.map((m) => m.id) } },
     });
 
-    const totalReceived = payouts.reduce((sum, p) => sum + p.amount, 0);
+    const totalReceived = payouts.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0
+    );
 
     const pendingInvites = await this.prisma.tontineInvite.count({
       where: { status: 'pending' },
@@ -64,22 +77,23 @@ export class DashboardService {
     const formattedExpenses = recentExpenses.map((e) => ({
       id: e.id,
       title: e.title,
-      amount: e.amount,
+      amount: Number(e.amount),
       category: e.budgetCategory.name,
       date: e.expenseDate,
     }));
 
-    // Upcoming payouts — similar to Laravel logic
+    // Upcoming payouts
     const upcomingPayouts = tontineMemberships
       .map((m) => {
         const t = m.tontine;
         if (!t.startDate) return null;
 
         const startDate = new Date(t.startDate);
-        const rounds = 0; // TODO: map priority_order when added
+        const rounds = 0; // TODO: priority order mapping
         let payoutDate: Date;
 
-        switch (t.contributionFrequency) {
+        // FIXED: use t.frequency, NOT t.contributionFrequency
+        switch (t.frequency) {
           case 'daily':
             payoutDate = addDays(startDate, rounds);
             break;
@@ -97,9 +111,12 @@ export class DashboardService {
             id: m.id,
             tontine_name: t.name,
             payout_date: payoutDate.toISOString().split('T')[0],
-            amount: t.contributionAmount * (t.maxMembers ?? 0),
+
+            // FIXED: Decimal * number
+            amount: Number(t.contributionAmount) * (t.maxMembers ?? 0),
           };
         }
+
         return null;
       })
       .filter(Boolean)

@@ -8,7 +8,12 @@ export class TontineContributionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateTontineContributionDto) {
-    return this.prisma.tontineContribution.create({ data: dto });
+    return this.prisma.tontineContribution.create({
+      data: {
+        ...dto,
+        status: dto.status ?? 'pending', // default to 'pending'
+      },
+    });
   }
 
   async findAll(query: any) {
@@ -19,14 +24,24 @@ export class TontineContributionsService {
 
     return this.prisma.tontineContribution.findMany({
       where,
-      include: { user: true, tontine: true },
+      include: {
+        user: true,
+        tontineMember: {
+          include: { tontine: true }
+        }
+      },
     });
   }
 
   async findOne(id: number) {
     const contribution = await this.prisma.tontineContribution.findUnique({
       where: { id },
-      include: { user: true, tontine: true },
+      include: {
+        user: true,
+        tontineMember: {
+          include: { tontine: true }
+        }
+      }
     });
     if (!contribution) throw new NotFoundException('Contribution not found');
     return contribution;
@@ -51,12 +66,11 @@ export class TontineContributionsService {
   }
 
   async stats(tontineId: number) {
-    const stats = await this.prisma.tontineContribution.aggregate({
-      where: { tontineId },
+    return this.prisma.tontineContribution.aggregate({
+      where: { tontineMember: { tontineId } },
       _sum: { amount: true },
       _count: { id: true },
     });
-    return stats;
   }
   
    async findByTontine(tontineId: number, query: any) {
@@ -65,13 +79,16 @@ export class TontineContributionsService {
     });
     if (!tontine) throw new NotFoundException('Tontine not found');
 
-    const where: any = { tontineId };
+    const where: any = { tontineMember: { tontineId } };
     if (query.userId) where.userId = Number(query.userId);
     if (query.status) where.status = query.status;
 
     return this.prisma.tontineContribution.findMany({
       where,
-      include: { user: true },
+      include: {
+        user: true,
+        tontineMember: { include: { tontine: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

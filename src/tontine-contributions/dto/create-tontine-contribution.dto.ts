@@ -1,11 +1,7 @@
 export class CreateTontineContributionDto {
-  tontineId: number;
-  userId: number;
+  tontineMemberId: number; // ✅ required
+  userId?: number;
   amount: number;
-  currency?: string;
   contributionDate?: Date;
-  roundNumber: number;
-  paymentMethod?: string;
   status?: string;
-  transactionId?: string;
 }

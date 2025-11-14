@@ -27,8 +27,7 @@ export class TontineInvitesService {
       data: {
         tontineId: invite.tontineId,
         userId,
-        role: 'member',
-        isActive: true,
+        isAdmin: false, // replace 'role: member'
       },
     });
 
