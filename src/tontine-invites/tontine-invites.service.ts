@@ -7,6 +7,7 @@ export class TontineInvitesService {
 
   async findAll() {
     return this.prisma.tontineInvite.findMany({
+      where: { status: 'pending' },
       include: { tontine: true, user: true },
     });
   }
@@ -20,29 +21,38 @@ export class TontineInvitesService {
     return invite;
   }
 
-  async accept(id: number, userId: number) {
+  async accept(id: number, userId?: number) {
     const invite = await this.findOne(id);
+
+    // Use passed userId or invite.userId if available
+    const finalUserId = userId ?? invite.userId;
+    if (!finalUserId) throw new Error("User ID is required to accept invite");
 
     await this.prisma.tontineMember.create({
       data: {
         tontineId: invite.tontineId,
-        userId,
-        isAdmin: false, // replace 'role: member'
+        userId: finalUserId,
+        isAdmin: false,
       },
     });
 
     return this.prisma.tontineInvite.update({
       where: { id },
-      data: { status: 'accepted' },
+      data: { status: "accepted" },
     });
   }
 
   async decline(id: number) {
-    await this.findOne(id);
-    return this.prisma.tontineInvite.update({
-      where: { id },
-      data: { status: 'declined' },
-    });
+    try{
+      await this.findOne(id);
+      return this.prisma.tontineInvite.update({
+        where: { id },
+        data: { status: 'declined' },
+      });
+    }catch(error){
+      console.log(error);
+      throw new NotFoundException('Invite not found');
+    }
   }
 
   async resend(id: number) {
