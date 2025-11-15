@@ -1,36 +1,39 @@
-// src/stripe/stripe.controller.ts
-import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Headers,
+} from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
 import { StripeService } from './stripe.service';
-import { StripeCheckoutDto } from './dto/stripe-checkout.dto';
+import { CreateCheckoutDto } from './dto/create-checkout.dto';
 
 @Controller('stripe')
 export class StripeController {
-  constructor(private readonly stripeService: StripeService) {}
+  constructor(private stripeService: StripeService) {}
 
-  /**
-   * GET /stripe/checkout/success
-   * Laravel equivalent: checkoutSuccess()
-   */
-  @Get('checkout/success')
-  async checkoutSuccess(@Query() query: StripeCheckoutDto) {
-    // Validate session_id
-    if (!query.session_id) {
-      throw new BadRequestException('session_id is required');
-    }
-
-    // Call service method
-    const session = await this.stripeService.checkoutSuccess(query.session_id);
-
-    // Return session data (or handle frontend rendering logic)
-    return { session };
+  @Post('checkout')
+  createCheckout(@Body() dto: CreateCheckoutDto) {
+    return this.stripeService.createCheckoutSession(dto);
   }
 
-  /**
-   * GET /stripe/checkout/cancel
-   * Laravel equivalent: checkoutCancel()
-   */
-  @Get('checkout/cancel')
-  async checkoutCancel() {
-    return this.stripeService.checkoutCancel();
+  // FRONTEND calls this after success redirect
+  @Post('verify')
+  verify(@Body('session_id') sessionId: string) {
+    return this.stripeService.verifyCheckoutSession(sessionId);
+  }
+
+  // WEBHOOK (must be RAW BODY)
+  @Post('webhook')
+  async webhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('stripe-signature') signature: string,
+  ) {
+    if (!req.rawBody) {
+      throw new Error('Webhook Raw Body missing. Enable raw body in main.ts');
+    }
+
+    return this.stripeService.handleWebhook(signature, req.rawBody);
   }
 }

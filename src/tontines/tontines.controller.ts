@@ -19,9 +19,9 @@ export class TontinesController {
   // CRUD
   // -------------------
   @Post()
-  create(@Body() dto: CreateTontineDto, @Req() req: any) {
-    // console.log(req.body);
-    return this.tontinesService.create(dto, req.body.creatorId); 
+  async create(@Body() dto: CreateTontineDto, @Req() req: any) {
+    const creatorId = req.user.userId; 
+    return this.tontinesService.createTontine(dto, creatorId);
   }
 
   @Get('types')
@@ -39,7 +39,7 @@ export class TontinesController {
     @Query() filters?: any
   ) {
     const user = req.user;
-    return this.tontinesService.findAll(filters, Number(page) || 1, Number(limit) || 20, user.id);
+    return this.tontinesService.findAll(filters, Number(page) || 1, Number(limit) || 20, user.userId);
   }
 
   @Get('create')
@@ -49,8 +49,9 @@ export class TontinesController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.tontinesService.findOne(id);
+  findOne(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    const userId = req.user.userId;
+    return this.tontinesService.findOne(id, userId);
   }
 
   @Get(':id/edit')
