@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, ParseIntPipe, Query, Req } from '@nestjs/common';
 import { TontineContributionsService } from './tontine-contributions.service';
 import { CreateTontineContributionDto } from './dto/create-tontine-contribution.dto';
 import { UpdateTontineContributionDto } from './dto/update-tontine-contribution.dto';
@@ -54,5 +54,53 @@ export class TontineContributionsController {
     ) {
       return this.service.findByTontine(tontineId, query);
     }
+
+ @Get('checkout/success')
+  async handleSuccess(@Query('sessionId') sessionId: string) {
+    try{
+    if (!sessionId) {
+      return { success: false, message: 'No session ID provided' };
+    }
+
+    // Retrieve Stripe session
+    const session = await this.service.retrieveStripeSession(sessionId);
+    if (!session) {
+      return { success: false, message: 'Stripe session not found' };
+    }
+
+    // Get data from metadata
+    const tontineId = Number(session.metadata?.tontine_id ?? 0);
+    const userId = Number(session.metadata?.user_id ?? 0);
+    const amount = session.amount_total ? session.amount_total / 100 : 0;
+
+    if (!tontineId || !userId) {
+      return { success: false, message: 'Invalid metadata' };
+    }
+
+    // Create contribution
+    const contribution = await this.service.createContributionFromStripe({
+      tontineId,
+      userId,
+      amount,
+      status: 'completed',
+      paymentMethod: 'stripe',
+    });
+
+    return {
+      success: true,
+      contributionId: contribution.id,
+      redirectTo: '/tontine-contributions',
+    };
+  }
+  catch (error) {
+    console.error('Error in handleSuccess:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+  @Get('checkout/cancel')
+  handleCancel(@Query('sessionId') sessionId: string) {
+    return { success: false, redirectTo: `/tontine-contributions` };
+  }
 
 }

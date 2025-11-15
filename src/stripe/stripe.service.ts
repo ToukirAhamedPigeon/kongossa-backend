@@ -34,6 +34,7 @@ export class StripeService {
     description?: string;
     metadata?: Record<string, string>;
   }) {
+    try{
     const session = await this.stripe.checkout.sessions.create({
       payment_method_types: ['card'],
 
@@ -59,6 +60,10 @@ export class StripeService {
     });
 
     return { url: session.url, id: session.id };
+    } catch (error) {
+      this.logger.error(`Error creating checkout session: ${error.message}`);
+      throw new BadRequestException('Checkout session creation failed');
+    }
   }
 
   // ---------------------------------------------

@@ -19,19 +19,19 @@ export class SettingsController {
   // GET /settings/profile
   @Get('profile')
   async getProfile(@Req() req: any) {
-    return this.settingsService.getProfile(req.user.id);
+    return this.settingsService.getProfile(req.user.userId);
   }
 
   // PATCH /settings/profile
   @Patch('profile')
   async updateProfile(@Req() req: any, @Body() body: any) {
-    return this.settingsService.updateProfile(req.user.id, body);
+    return this.settingsService.updateProfile(req.user.userId, body);
   }
 
   // DELETE /settings/profile
   @Delete('profile')
   async deleteAccount(@Req() req: any, @Body('password') password: string) {
-    return this.settingsService.deleteAccount(req.user.id, password);
+    return this.settingsService.deleteAccount(req.user.userId, password);
   }
 
   // GET /settings/password
@@ -45,7 +45,7 @@ export class SettingsController {
   async updatePassword(@Req() req: any, @Body() body: any) {
     const { current_password, password, password_confirmation } = body;
     return this.settingsService.updatePassword(
-      req.user.id,
+      req.user.userId,
       current_password,
       password,
       password_confirmation,

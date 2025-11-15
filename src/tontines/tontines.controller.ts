@@ -114,14 +114,15 @@ export class TontinesController {
     return this.tontinesService.tontineContribute(id);
   }
 
-  @Post(':id/contribute')
+  @Post(':id/contribute/:userId')
   makeContribution(
     @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
     @Body('amount') amount: number,
     @Body('paymentMethod') paymentMethod: string,
     @Req() req: any
   ) {
-    return this.tontinesService.makeContribution(id, req.user.id, amount, paymentMethod);
+    return this.tontinesService.makeContribution(id, userId, amount, paymentMethod);
   }
 
   // -------------------

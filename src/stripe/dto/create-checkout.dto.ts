@@ -1,8 +1,18 @@
+import { IsNumber, IsOptional, IsString, IsObject } from 'class-validator';
+
 export class CreateCheckoutDto {
+  @IsNumber()
   amount: number;
-  currency: string;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 
-  // metadata (tontine_id, user_id, etc.)
+  @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
 }

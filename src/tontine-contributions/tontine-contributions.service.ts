@@ -2,10 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTontineContributionDto } from './dto/create-tontine-contribution.dto';
 import { UpdateTontineContributionDto } from './dto/update-tontine-contribution.dto';
+import { StripeService } from 'src/stripe/stripe.service';
 
 @Injectable()
 export class TontineContributionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly stripe: StripeService) {}
 
   async create(dto: CreateTontineContributionDto) {
     return this.prisma.tontineContribution.create({
@@ -17,21 +18,62 @@ export class TontineContributionsService {
   }
 
   async findAll(query: any) {
-    const where: any = {};
-    if (query.tontineId) where.tontineId = Number(query.tontineId);
-    if (query.userId) where.userId = Number(query.userId);
-    if (query.status) where.status = query.status;
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
 
-    return this.prisma.tontineContribution.findMany({
+  const where: any = {};
+
+  // Filters
+  if (query.tontine_id) {
+    where.tontineMember = { tontineId: Number(query.tontine_id) };
+  }
+  if (query.user_id) {
+    where.tontineMember = { ...where.tontineMember, userId: Number(query.user_id) };
+  }
+  if (query.status) {
+    if(query.status=='paid'){
+      where.status = 'completed';
+    }else{
+      where.status = query.status;
+    }
+  }
+  if (query.search) {
+    where.OR = [
+      { tontineMember: { user: { name: { contains: query.search, mode: "insensitive" } } } },
+      { amount: { contains: query.search } }, // optional search by amount
+    ];
+  }
+
+  const [data, total] = await Promise.all([
+    this.prisma.tontineContribution.findMany({
       where,
       include: {
-        user: true,
         tontineMember: {
-          include: { tontine: true }
-        }
+          include: {
+            user: true,
+            tontine: true,
+          },
+        },
       },
-    });
-  }
+      skip,
+      take: limit,
+      orderBy: { contributionDate: 'desc' },
+    }),
+    this.prisma.tontineContribution.count({ where }),
+  ]);
+
+  const last_page = Math.ceil(total / limit);
+
+  return {
+    data,
+    current_page: page,
+    last_page,
+    per_page: limit,
+    total,
+  };
+}
+
 
   async findOne(id: number) {
     const contribution = await this.prisma.tontineContribution.findUnique({
@@ -91,5 +133,49 @@ export class TontineContributionsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+   async retrieveStripeSession(sessionId: string) {
+    try {
+      return await this.stripe.client.checkout.sessions.retrieve(sessionId);
+    } catch {
+      return null;
+    }
+  }
+
+  async createContributionFromStripe({
+    userId,
+    tontineId,
+    amount,
+    status = 'pending',
+    paymentMethod = 'stripe',
+  }: {
+    userId: number;
+    tontineId: number;
+    amount: number;
+    status?: string;
+    paymentMethod?: string;
+  }) {
+    try{
+    // Find the member record first
+      const member = await this.prisma.tontineMember.findFirst({
+        where: { userId, tontineId },
+      });
+      if (!member) throw new Error('Tontine member not found');
+
+      return this.prisma.tontineContribution.create({
+        data: {
+          tontineMemberId: member.id,
+          amount,
+          status,
+          userId,
+          contributionDate: new Date(),
+        },
+      });
+    }
+    catch (error) {
+      console.error('Error in createContributionFromStripe:', error);
+      throw error;
+    }
   }
 }

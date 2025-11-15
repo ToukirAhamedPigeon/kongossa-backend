@@ -13,6 +13,7 @@ export class SettingsService {
 
   // GET /settings/profile
   async getProfile(userId: number) {
+    try{
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -28,6 +29,11 @@ export class SettingsService {
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
+    }
+    catch (error) {
+      console.error('Error in getProfile:', error);
+      throw error;
+    }
   }
 
   // PATCH /settings/profile
@@ -76,6 +82,7 @@ export class SettingsService {
     new_password: string,
     password_confirmation: string,
   ) {
+    try{
     if (new_password !== password_confirmation)
       throw new BadRequestException('Password confirmation does not match');
 
@@ -92,5 +99,10 @@ export class SettingsService {
     });
 
     return { message: 'Password updated successfully' };
+    }
+    catch (error) {
+      console.error('Error in updatePassword:', error);
+      throw error;
+    }
   }
 }
